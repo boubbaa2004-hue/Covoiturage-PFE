@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Bricolage+Grotesque:wght@400;600;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --primary: #00875A;
+  --primary-dark: #005C3E;
+  --primary-light: #E8F5F0;
+  --accent: #FF6B35;
+  --gold: #FFB547;
+  --dark: #0D1117;
+  --dark2: #1C2434;
+  --gray: #F7F8FA;
+  --gray2: #EEF0F3;
+  --border: #E4E7EC;
+  --text: #111827;
+  --muted: #6B7280;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--text);
+  overflow-x: hidden;
+  background: white;
+}
