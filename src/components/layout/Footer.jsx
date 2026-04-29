@@ -10,7 +10,7 @@ export default function Footer() {
         <div>
           <div style={{ fontFamily:'Bricolage Grotesque, sans-serif', fontWeight:800, fontSize:'1.4rem', color:'white', marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
             <div style={{ width:30, height:30, background:'var(--primary)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800 }}>C</div>
-            Covoit<em style={{ color:'var(--accent)', fontStyle:'normal' }}>Go</em>
+            Covoit<em style={{ color:'var(--accent)', fontStyle:'normal' }}>liv</em>
           </div>
           <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.88rem', lineHeight:1.7, marginBottom:'1.5rem', maxWidth:280 }}>
             La première plateforme marocaine de covoiturage et livraison de colis. Simple, sécurisée et collaborative.
