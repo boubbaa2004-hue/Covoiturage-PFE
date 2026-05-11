@@ -31,7 +31,7 @@ export default function Footer() {
         ))}
       </div>
       <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1.5rem 0', flexWrap:'wrap', gap:'1rem' }}>
-        <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.82rem' }}>© 2026 CovoitGo — Université Sultan Moulay Slimane de Béni Mellal</p>
+        <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.82rem' }}>© 2026 CovoitLiv — Université Sultan Moulay Slimane de Béni Mellal</p>
         <div style={{ display:'flex', gap:'1.5rem' }}>
           {["Conditions d'utilisation",'Confidentialité','Cookies'].map(l => <a key={l} href="#" style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.82rem', textDecoration:'none' }}>{l}</a>)}
         </div>

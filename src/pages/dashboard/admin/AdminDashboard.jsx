@@ -414,15 +414,14 @@ const handleEnCours = async (id) => {
               </Card>
             </div>
           )}
-          {tab === 'Documents' && (
-  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+         {tab === 'Documents' && (
+  <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
     <h2 style={{ fontFamily:'Bricolage Grotesque,sans-serif', fontSize:'1.5rem', fontWeight:800, color:'var(--dark)' }}>
-      Validation des documents
+      Validation des documents conducteurs
       <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontSize:'1rem', fontWeight:500, color:'var(--muted)', marginLeft:'0.8rem' }}>
         ({documents.length} en attente)
       </span>
     </h2>
-    
 
     {loading ? <Loading /> :
       documents.length === 0 ? (
@@ -432,110 +431,156 @@ const handleEnCours = async (id) => {
           <p style={{ color:'var(--muted)' }}>Tous les conducteurs ont été traités.</p>
         </Card>
       ) : documents.map(d => (
-  <Card key={d.id} style={{ padding:'1.5rem' }}>
-    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:'1rem' }}>
+        <Card key={d.id} style={{ padding:'2rem' }}>
 
-      {/* Infos conducteur */}
-      <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
-        <div style={{ width:48, height:48, background:'#F3EEFF', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.4rem' }}>👤</div>
-        <div>
-          <div style={{ fontFamily:'Bricolage Grotesque,sans-serif', fontWeight:700, fontSize:'1.05rem', color:'var(--dark)' }}>{d.nom}</div>
-          <div style={{ fontSize:'0.82rem', color:'var(--muted)', marginTop:2 }}>{d.email} · {d.telephone}</div>
-          {d.marqueVoiture && (
-            <span style={{ background:'#E6F1FB', color:'#185FA5', padding:'0.2rem 0.6rem', borderRadius:6, fontSize:'0.75rem', fontWeight:600, display:'inline-block', marginTop:4 }}>
-              🚗 {d.marqueVoiture}
+          {/* Header conducteur */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+              <div style={{ width:52, height:52, background:'var(--dark)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Bricolage Grotesque,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'white' }}>
+                {d.nom?.split(' ').map(n=>n[0]).join('') || 'C'}
+              </div>
+              <div>
+                <div style={{ fontFamily:'Bricolage Grotesque,sans-serif', fontWeight:700, fontSize:'1.1rem', color:'var(--dark)' }}>{d.nom}</div>
+                <div style={{ fontSize:'0.82rem', color:'var(--muted)', marginTop:2 }}>{d.email} · {d.telephone}</div>
+                {d.marqueVoiture && (
+                  <span style={{ background:'#E6F1FB', color:'#185FA5', padding:'0.2rem 0.7rem', borderRadius:6, fontSize:'0.75rem', fontWeight:600, display:'inline-block', marginTop:4 }}>
+                    🚗 {d.marqueVoiture}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:'0.8rem' }}>
+              <button onClick={() => handleValiderDoc(d.id)}
+                style={{ background:'var(--primary)', color:'white', border:'none', borderRadius:8, padding:'0.7rem 1.5rem', fontSize:'0.9rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                ✓ Valider
+              </button>
+              <button onClick={() => handleRejeterDoc(d.id)}
+                style={{ background:'#FDEDED', color:'#C62828', border:'none', borderRadius:8, padding:'0.7rem 1.5rem', fontSize:'0.9rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                ✕ Rejeter
+              </button>
+            </div>
+          </div>
+
+          {/* Photos documents */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'1rem' }}>
+
+            {/* Permis */}
+            {d.permisConduire ? (
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid var(--border)' }}>
+                <div style={{ background:'var(--primary-light)', padding:'0.5rem 0.8rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                  <span style={{ fontSize:'0.8rem' }}>📷</span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--primary)' }}>PERMIS DE CONDUIRE</span>
+                </div>
+                <a href={`http://localhost:8080/api/documents/fichier/${d.permisConduire}`} target="_blank" rel="noreferrer">
+                  <img
+                    src={`http://localhost:8080/api/documents/fichier/${d.permisConduire}`}
+                    alt="Permis"
+                    style={{ width:'100%', height:160, objectFit:'cover', display:'block', cursor:'pointer' }}
+                    onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex' }}
+                  />
+                  <div style={{ display:'none', height:160, alignItems:'center', justifyContent:'center', background:'var(--gray)', color:'var(--muted)', fontSize:'0.82rem', flexDirection:'column', gap:'0.5rem' }}>
+                    <span style={{ fontSize:'2rem' }}>🖼️</span>
+                    <span>Cliquer pour voir</span>
+                  </div>
+                </a>
+                <div style={{ padding:'0.5rem 0.8rem', background:'var(--gray)', fontSize:'0.75rem', color:'var(--muted)' }}>
+                  Cliquer pour agrandir
+                </div>
+              </div>
+            ) : (
+              <div style={{ borderRadius:12, border:'1px dashed var(--border)', height:200, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.5rem', color:'var(--muted)' }}>
+                <span style={{ fontSize:'2rem' }}>📷</span>
+                <span style={{ fontSize:'0.82rem' }}>Permis non soumis</span>
+              </div>
+            )}
+
+            {/* CIN */}
+            {d.pieceIdentite ? (
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid var(--border)' }}>
+                <div style={{ background:'#E6F1FB', padding:'0.5rem 0.8rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                  <span style={{ fontSize:'0.8rem' }}>🪪</span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#185FA5' }}>PIÈCE D'IDENTITÉ</span>
+                </div>
+                <a href={`http://localhost:8080/api/documents/fichier/${d.pieceIdentite}`} target="_blank" rel="noreferrer">
+                  <img
+                    src={`http://localhost:8080/api/documents/fichier/${d.pieceIdentite}`}
+                    alt="CIN"
+                    style={{ width:'100%', height:160, objectFit:'cover', display:'block', cursor:'pointer' }}
+                    onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex' }}
+                  />
+                  <div style={{ display:'none', height:160, alignItems:'center', justifyContent:'center', background:'var(--gray)', color:'var(--muted)', fontSize:'0.82rem', flexDirection:'column', gap:'0.5rem' }}>
+                    <span style={{ fontSize:'2rem' }}>🖼️</span>
+                    <span>Cliquer pour voir</span>
+                  </div>
+                </a>
+                <div style={{ padding:'0.5rem 0.8rem', background:'var(--gray)', fontSize:'0.75rem', color:'var(--muted)' }}>
+                  Cliquer pour agrandir
+                </div>
+              </div>
+            ) : (
+              <div style={{ borderRadius:12, border:'1px dashed var(--border)', height:200, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.5rem', color:'var(--muted)' }}>
+                <span style={{ fontSize:'2rem' }}>🪪</span>
+                <span style={{ fontSize:'0.82rem' }}>CIN non soumise</span>
+              </div>
+            )}
+
+            {/* Photo Voiture */}
+            {d.photoVoiture ? (
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid var(--border)' }}>
+                <div style={{ background:'#FFF0E8', padding:'0.5rem 0.8rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                  <span style={{ fontSize:'0.8rem' }}>🚗</span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--accent)' }}>PHOTO DU VÉHICULE</span>
+                </div>
+                <a href={`http://localhost:8080/api/documents/fichier/${d.photoVoiture}`} target="_blank" rel="noreferrer">
+                  <img
+                    src={`http://localhost:8080/api/documents/fichier/${d.photoVoiture}`}
+                    alt="Voiture"
+                    style={{ width:'100%', height:160, objectFit:'cover', display:'block', cursor:'pointer' }}
+                    onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex' }}
+                  />
+                  <div style={{ display:'none', height:160, alignItems:'center', justifyContent:'center', background:'var(--gray)', color:'var(--muted)', fontSize:'0.82rem', flexDirection:'column', gap:'0.5rem' }}>
+                    <span style={{ fontSize:'2rem' }}>🖼️</span>
+                    <span>Cliquer pour voir</span>
+                  </div>
+                </a>
+                <div style={{ padding:'0.5rem 0.8rem', background:'var(--gray)', fontSize:'0.75rem', color:'var(--muted)' }}>
+                  Cliquer pour agrandir
+                </div>
+              </div>
+            ) : (
+              <div style={{ borderRadius:12, border:'1px dashed var(--border)', height:200, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.5rem', color:'var(--muted)' }}>
+                <span style={{ fontSize:'2rem' }}>🚗</span>
+                <span style={{ fontSize:'0.82rem' }}>Photo non soumise</span>
+              </div>
+            )}
+
+            {/* Carte grise PDF */}
+            {d.carteGrise && (
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid var(--border)' }}>
+                <div style={{ background:'#F3EEFF', padding:'0.5rem 0.8rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                  <span style={{ fontSize:'0.8rem' }}>📄</span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#6B21A8' }}>CARTE GRISE</span>
+                </div>
+                <a href={`http://localhost:8080/api/documents/fichier/${d.carteGrise}`} target="_blank" rel="noreferrer"
+                  style={{ display:'flex', height:160, alignItems:'center', justifyContent:'center', background:'var(--gray)', textDecoration:'none', flexDirection:'column', gap:'0.5rem' }}>
+                  <span style={{ fontSize:'3rem' }}>📄</span>
+                  <span style={{ color:'#6B21A8', fontSize:'0.85rem', fontWeight:600 }}>Voir le PDF</span>
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Statut */}
+          <div style={{ marginTop:'1rem', paddingTop:'1rem', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            <span style={{ fontSize:'0.82rem', color:'var(--muted)' }}>Statut :</span>
+            <span style={{ background:'#FFF8E6', color:'#92610A', padding:'0.25rem 0.8rem', borderRadius:20, fontSize:'0.75rem', fontWeight:700 }}>
+              ⏳ {d.statutVerification}
             </span>
-          )}
-        </div>
-      </div>
-
-      {/* Boutons valider/rejeter */}
-      <div style={{ display:'flex', gap:'0.8rem', flexWrap:'wrap' }}>
-        <button onClick={() => handleValiderDoc(d.id)}
-          style={{ background:'var(--primary-light)', color:'var(--primary)', border:'none', borderRadius:8, padding:'0.6rem 1.3rem', fontSize:'0.88rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
-          ✓ Valider
-        </button>
-        <button onClick={() => handleRejeterDoc(d.id)}
-          style={{ background:'#FDEDED', color:'#C62828', border:'none', borderRadius:8, padding:'0.6rem 1.3rem', fontSize:'0.88rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
-          ✕ Rejeter
-        </button>
-      </div>
-    </div>
-
-    {/* Documents visuels */}
-    <div style={{ marginTop:'1.2rem', paddingTop:'1.2rem', borderTop:'1px solid var(--border)', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))', gap:'1rem' }}>
-
-      {/* Photo Permis */}
-      {d.permisConduire && (
-        <a href={`http://localhost:8080/api/documents/fichier/${d.permisConduire}`} target="_blank" rel="noreferrer"
-          style={{ textDecoration:'none', display:'block' }}>
-          <div style={{ border:'1px solid var(--border)', borderRadius:10, overflow:'hidden', background:'var(--gray)' }}>
-            <img
-              src={`http://localhost:8080/api/documents/fichier/${d.permisConduire}`}
-              alt="Permis"
-              style={{ width:'100%', height:100, objectFit:'cover' }}
-              onError={e => e.target.style.display='none'}
-            />
-            <div style={{ padding:'0.5rem', textAlign:'center', fontSize:'0.78rem', fontWeight:600, color:'var(--primary)' }}>
-              📷 Permis de conduire
-            </div>
           </div>
-        </a>
-      )}
 
-      {/* Photo CIN */}
-      {d.pieceIdentite && (
-        <a href={`http://localhost:8080/api/documents/fichier/${d.pieceIdentite}`} target="_blank" rel="noreferrer"
-          style={{ textDecoration:'none', display:'block' }}>
-          <div style={{ border:'1px solid var(--border)', borderRadius:10, overflow:'hidden', background:'var(--gray)' }}>
-            <img
-              src={`http://localhost:8080/api/documents/fichier/${d.pieceIdentite}`}
-              alt="CIN"
-              style={{ width:'100%', height:100, objectFit:'cover' }}
-              onError={e => e.target.style.display='none'}
-            />
-            <div style={{ padding:'0.5rem', textAlign:'center', fontSize:'0.78rem', fontWeight:600, color:'var(--primary)' }}>
-              🪪 Pièce d'identité
-            </div>
-          </div>
-        </a>
-      )}
-
-      {/* Photo Voiture */}
-      {d.photoVoiture && (
-        <a href={`http://localhost:8080/api/documents/fichier/${d.photoVoiture}`} target="_blank" rel="noreferrer"
-          style={{ textDecoration:'none', display:'block' }}>
-          <div style={{ border:'1px solid var(--border)', borderRadius:10, overflow:'hidden', background:'var(--gray)' }}>
-            <img
-              src={`http://localhost:8080/api/documents/fichier/${d.photoVoiture}`}
-              alt="Voiture"
-              style={{ width:'100%', height:100, objectFit:'cover' }}
-              onError={e => e.target.style.display='none'}
-            />
-            <div style={{ padding:'0.5rem', textAlign:'center', fontSize:'0.78rem', fontWeight:600, color:'#185FA5' }}>
-              🚗 Photo véhicule
-            </div>
-          </div>
-        </a>
-      )}
-
-      {/* Carte grise PDF */}
-      {d.carteGrise && (
-        <a href={`http://localhost:8080/api/documents/fichier/${d.carteGrise}`} target="_blank" rel="noreferrer"
-          style={{ textDecoration:'none', display:'block' }}>
-          <div style={{ border:'1px solid var(--border)', borderRadius:10, background:'var(--gray)', padding:'1rem', textAlign:'center' }}>
-            <div style={{ fontSize:'2.5rem', marginBottom:'0.4rem' }}>📄</div>
-            <div style={{ fontSize:'0.78rem', fontWeight:600, color:'var(--accent)' }}>
-              Carte grise (PDF)
-            </div>
-          </div>
-        </a>
-      )}
-
-    </div>
-  </Card>
-))}
-    
+        </Card>
+      ))
+    }
   </div>
 )}
 {tab === 'Litiges' && (

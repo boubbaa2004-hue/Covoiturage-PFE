@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../../components/layout/Header'
 import Footer from '../../components/layout/Footer'
 import { login } from '../../lib/api'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || null
+
   const [form, setForm] = useState({ email: '', motDePasse: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,9 +21,16 @@ export default function LoginPage() {
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data))
 
-      if (data.role === 'CLIENT') navigate('/dashboard/client')
-      else if (data.role === 'CONDUCTEUR') navigate('/dashboard/conducteur')
-      else if (data.role === 'ADMIN') navigate('/dashboard/admin')
+      // Redirection vers la page d'origine si elle existe
+      if (redirectTo) {
+        navigate(redirectTo)
+      } else if (data.role === 'CLIENT') {
+        navigate('/dashboard/client')
+      } else if (data.role === 'CONDUCTEUR') {
+        navigate('/dashboard/conducteur')
+      } else if (data.role === 'ADMIN') {
+        navigate('/dashboard/admin')
+      }
     } catch (e) {
       setError('Email ou mot de passe incorrect')
     } finally {
@@ -36,6 +46,13 @@ export default function LoginPage() {
           <h2 style={{ fontFamily:'Bricolage Grotesque,sans-serif', fontSize:'1.8rem', fontWeight:800, color:'var(--dark)', marginBottom:'0.5rem' }}>Connexion</h2>
           <p style={{ color:'var(--muted)', fontSize:'0.9rem', marginBottom:'2rem' }}>Bon retour sur CovoLiv 👋</p>
 
+          {/* Message si redirection depuis trajet */}
+          {redirectTo && (
+            <div style={{ background:'#E6F1FB', color:'#185FA5', padding:'0.8rem 1rem', borderRadius:8, fontSize:'0.88rem', marginBottom:'1rem', fontWeight:600 }}>
+              🔐 Connectez-vous pour réserver ce trajet
+            </div>
+          )}
+
           {error && (
             <div style={{ background:'#FDEDED', color:'#C62828', padding:'0.8rem 1rem', borderRadius:8, fontSize:'0.88rem', marginBottom:'1rem', fontWeight:600 }}>
               ❌ {error}
@@ -44,29 +61,23 @@ export default function LoginPage() {
 
           <div style={{ marginBottom:'1rem' }}>
             <label style={{ fontSize:'0.8rem', fontWeight:600, color:'var(--text)', display:'block', marginBottom:'0.4rem' }}>Email</label>
-            <input
-              type="email"
-              placeholder="votre@email.com"
+            <input type="email" placeholder="votre@email.com"
               value={form.email}
               onChange={e => setForm({...form, email: e.target.value})}
-              style={{ width:'100%', padding:'0.85rem 1rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', fontFamily:'inherit' }}
-            />
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              style={{ width:'100%', padding:'0.85rem 1rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', fontFamily:'inherit' }} />
           </div>
 
           <div style={{ marginBottom:'1.5rem' }}>
             <label style={{ fontSize:'0.8rem', fontWeight:600, color:'var(--text)', display:'block', marginBottom:'0.4rem' }}>Mot de passe</label>
-            <input
-              type="password"
-              placeholder="••••••••"
+            <input type="password" placeholder="••••••••"
               value={form.motDePasse}
               onChange={e => setForm({...form, motDePasse: e.target.value})}
-              style={{ width:'100%', padding:'0.85rem 1rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', fontFamily:'inherit' }}
-            />
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              style={{ width:'100%', padding:'0.85rem 1rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', fontFamily:'inherit' }} />
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
+          <button onClick={handleSubmit} disabled={loading}
             style={{ width:'100%', padding:'1rem', background: loading ? 'var(--muted)' : 'var(--primary)', color:'white', border:'none', borderRadius:10, fontSize:'1rem', fontWeight:700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
