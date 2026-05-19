@@ -1,87 +1,126 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function Hero() {
-  const [activeTab, setActiveTab] = useState('covoiturage')
+  const navigate = useNavigate()
+  const [search, setSearch] = useState({ villeDepart:'', villeArrivee:'', date:'' })
+
+  const handleSearch = () => {
+    if (!search.villeDepart || !search.villeArrivee) return
+    navigate(`/trajets?depart=${encodeURIComponent(search.villeDepart)}&arrivee=${encodeURIComponent(search.villeArrivee)}`)
+  }
 
   return (
-    <section style={{ marginTop:108, background:'var(--dark)', minHeight:'88vh', position:'relative', overflow:'hidden', display:'flex', alignItems:'center' }}>
-      <div style={{ position:'absolute', inset:0, backgroundImage:"url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1600&q=85&fit=crop')", backgroundSize:'cover', backgroundPosition:'center', filter:'brightness(0.35)' }} />
-      <div style={{ position:'absolute', inset:0, background:'linear-gradient(105deg,rgba(0,94,55,0.85) 0%,rgba(0,0,0,0.4) 60%,transparent 100%)' }} />
+    <section style={{ marginTop:108, minHeight:'88vh', position:'relative', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
 
-      <div style={{ position:'relative', zIndex:2, maxWidth:1280, margin:'0 auto', padding:'4rem 3rem', display:'grid', gridTemplateColumns:'1.1fr 0.9fr', gap:'5rem', alignItems:'center', width:'100%' }}>
-        <div>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', background:'rgba(255,181,71,0.18)', border:'1px solid rgba(255,181,71,0.4)', color:'var(--gold)', padding:'0.45rem 1.1rem', borderRadius:50, fontSize:'0.8rem', fontWeight:600, marginBottom:'1.8rem' }}>
-            <span style={{ width:7, height:7, background:'var(--gold)', borderRadius:'50%', display:'inline-block' }} />
-            NOUVEAU — Livraison OTP disponible
-          </div>
-          <h1 style={{ fontFamily:'Bricolage Grotesque, sans-serif', fontSize:'3.8rem', fontWeight:800, color:'white', lineHeight:1.08, letterSpacing:'-1.5px', marginBottom:'1.3rem' }}>
-            Voyagez malin,<br />
-            <span style={{ color:'var(--gold)' }}>livrez en confiance</span>
-          </h1>
-          <p style={{ color:'rgba(255,255,255,0.72)', fontSize:'1.05rem', lineHeight:1.75, marginBottom:'2.2rem', fontWeight:300 }}>
-            La première plateforme marocaine qui réunit covoiturage longue distance et livraison de colis sécurisée par code OTP.
-          </p>
-          <div style={{ display:'flex', gap:'1rem', marginBottom:'2.5rem', flexWrap:'wrap' }}>
-            <Link to="/trajets" style={{ display:'inline-flex', alignItems:'center', gap:'0.6rem', background:'var(--primary)', color:'white', padding:'0.9rem 2.2rem', borderRadius:10, fontWeight:700, fontSize:'1rem', textDecoration:'none' }}>
-              🚗 Trouver un trajet
-            </Link>
-            <Link to="/livraison" style={{ display:'inline-flex', alignItems:'center', gap:'0.6rem', background:'rgba(255,255,255,0.1)', color:'white', padding:'0.9rem 2rem', borderRadius:10, border:'1.5px solid rgba(255,255,255,0.25)', fontWeight:500, fontSize:'1rem', textDecoration:'none' }}>
-              📦 Envoyer un colis
-            </Link>
-          </div>
-          <div style={{ display:'flex', gap:'1.5rem', flexWrap:'wrap' }}>
-            {['✓ Conducteurs vérifiés', '✓ Paiement sécurisé', '✓ 45+ villes'].map(t => (
-              <span key={t} style={{ color:'rgba(255,255,255,0.6)', fontSize:'0.82rem' }}>{t}</span>
-            ))}
-          </div>
+      {/* Background */}
+      <div style={{ position:'absolute', inset:0, backgroundImage:"url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1600&q=85&fit=crop')", backgroundSize:'cover', backgroundPosition:'center', filter:'brightness(0.35)' }} />
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(105deg,rgba(0,94,55,0.85) 0%,rgba(0,0,0,0.5) 100%)' }} />
+
+      {/* Contenu centré */}
+      <div style={{ position:'relative', zIndex:2, width:'100%', maxWidth:900, margin:'0 auto', padding:'0 2rem', textAlign:'center' }}>
+
+        {/* Badge */}
+        <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', background:'rgba(255,181,71,0.18)', border:'1px solid rgba(255,181,71,0.4)', color:'var(--gold)', padding:'0.45rem 1.1rem', borderRadius:50, fontSize:'0.8rem', fontWeight:600, marginBottom:'1.8rem' }}>
+          <span style={{ width:7, height:7, background:'var(--gold)', borderRadius:'50%', display:'inline-block' }} />
+          NOUVEAU — Livraison OTP disponible
         </div>
 
-        {/* Carte recherche */}
-        <div style={{ background:'white', borderRadius:20, padding:'2rem', boxShadow:'0 24px 64px rgba(0,0,0,0.35)' }}>
-          <div style={{ display:'flex', background:'var(--gray2)', borderRadius:10, padding:4, marginBottom:'1.5rem', gap:4 }}>
-            {['covoiturage', 'livraison'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex:1, padding:'0.6rem', borderRadius:7, fontSize:'0.85rem', fontWeight:600, cursor:'pointer', border:'none', background: activeTab===tab ? 'white' : 'transparent', color: activeTab===tab ? 'var(--primary)' : 'var(--muted)', boxShadow: activeTab===tab ? '0 2px 8px rgba(0,0,0,0.1)' : 'none' }}>
-                {tab === 'covoiturage' ? '🚗 Covoiturage' : '📦 Livraison colis'}
-              </button>
-            ))}
+        {/* Titre */}
+        <h1 style={{ fontFamily:'Bricolage Grotesque,sans-serif', fontSize:'3.8rem', fontWeight:800, color:'white', lineHeight:1.08, letterSpacing:'-1.5px', marginBottom:'1rem' }}>
+          Voyagez malin,{' '}
+          <span style={{ color:'var(--gold)' }}>livrez en confiance</span>
+        </h1>
+
+        {/* Sous-titre */}
+        <p style={{ color:'rgba(255,255,255,0.72)', fontSize:'1.1rem', lineHeight:1.7, marginBottom:'2.5rem', fontWeight:300 }}>
+          La première plateforme marocaine qui réunit covoiturage longue distance<br />
+          et livraison de colis sécurisée par code OTP.
+        </p>
+
+        {/* Barre de recherche horizontale */}
+        <div style={{ background:'white', borderRadius:16, padding:'0.4rem', display:'flex', alignItems:'center', boxShadow:'0 24px 64px rgba(0,0,0,0.35)', marginBottom:'1.5rem' }}>
+
+          {/* Départ */}
+          <div style={{ flex:1, display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRight:'1px solid #E5E7EB' }}>
+            <span style={{ fontSize:'1.1rem', flexShrink:0 }}>📍</span>
+            <input
+              value={search.villeDepart}
+              onChange={e => setSearch({...search, villeDepart: e.target.value})}
+              onKeyDown={e => e.key==='Enter' && handleSearch()}
+              placeholder="Départ"
+              style={{ border:'none', background:'transparent', outline:'none', fontSize:'0.95rem', fontFamily:'inherit', width:'100%', color:'#111827' }}
+            />
           </div>
 
-          {[['Départ','📍','Ex : Béni Mellal','text'],['Destination','🎯','Ex : Casablanca','text']].map(([label, icon, placeholder, type]) => (
-            <div key={label} style={{ marginBottom:'1rem' }}>
-              <label style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:'0.4rem', display:'block' }}>{label}</label>
-              <div style={{ position:'relative' }}>
-                <span style={{ position:'absolute', left:'0.9rem', top:'50%', transform:'translateY(-50%)' }}>{icon}</span>
-                <input type={type} placeholder={placeholder} style={{ width:'100%', padding:'0.85rem 1rem 0.85rem 2.8rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', background:'var(--gray)', fontFamily:'inherit' }} />
-              </div>
-            </div>
-          ))}
-
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.8rem', marginBottom:'1rem' }}>
-            {[['Date','📅','date'],['Passagers','👤','number']].map(([label, icon, type]) => (
-              <div key={label}>
-                <label style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:'0.4rem', display:'block' }}>{label}</label>
-                <div style={{ position:'relative' }}>
-                  <span style={{ position:'absolute', left:'0.9rem', top:'50%', transform:'translateY(-50%)' }}>{icon}</span>
-                  <input type={type} defaultValue={type==='number'?1:undefined} min={type==='number'?1:undefined} style={{ width:'100%', padding:'0.85rem 1rem 0.85rem 2.8rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', background:'var(--gray)', fontFamily:'inherit' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button style={{ width:'100%', padding:'1rem', background:'var(--primary)', color:'white', border:'none', borderRadius:10, fontSize:'1rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.6rem', fontFamily:'inherit' }}>
-            🔍 Rechercher les trajets
+          {/* Swap */}
+          <button
+            onClick={() => setSearch({...search, villeDepart: search.villeArrivee, villeArrivee: search.villeDepart})}
+            style={{ padding:'0.5rem 0.7rem', background:'#F3F4F6', border:'none', borderRadius:8, cursor:'pointer', fontSize:'1rem', color:'#6B7280', flexShrink:0, margin:'0 0.2rem' }}>
+            ⇄
           </button>
 
-          <div style={{ marginTop:'1rem', paddingTop:'1rem', borderTop:'1px solid var(--border)' }}>
-            <p style={{ fontSize:'0.75rem', color:'var(--muted)', marginBottom:'0.5rem' }}>Trajets populaires :</p>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:'0.4rem' }}>
-              {['Béni Mellal → Casa', 'Marrakech → Rabat', 'Fès → Meknès', 'Agadir → Marrakech'].map(t => (
-                <span key={t} style={{ padding:'0.3rem 0.75rem', background:'var(--primary-light)', color:'var(--primary)', borderRadius:20, fontSize:'0.78rem', fontWeight:600, cursor:'pointer' }}>{t}</span>
-              ))}
-            </div>
+          {/* Arrivée */}
+          <div style={{ flex:1, display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRight:'1px solid #E5E7EB', borderLeft:'1px solid #E5E7EB' }}>
+            <span style={{ fontSize:'1.1rem', flexShrink:0 }}>📍</span>
+            <input
+              value={search.villeArrivee}
+              onChange={e => setSearch({...search, villeArrivee: e.target.value})}
+              onKeyDown={e => e.key==='Enter' && handleSearch()}
+              placeholder="Arrivée"
+              style={{ border:'none', background:'transparent', outline:'none', fontSize:'0.95rem', fontFamily:'inherit', width:'100%', color:'#111827' }}
+            />
           </div>
+
+          {/* Date */}
+          <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRight:'1px solid #E5E7EB', minWidth:180 }}>
+            <span style={{ fontSize:'1rem', flexShrink:0 }}>📅</span>
+            <input
+              type="date"
+              value={search.date}
+              onChange={e => setSearch({...search, date: e.target.value})}
+              style={{ border:'none', background:'transparent', outline:'none', fontSize:'0.9rem', fontFamily:'inherit', color: search.date ? '#111827' : '#9CA3AF', width:'100%' }}
+            />
+          </div>
+
+          {/* Bouton */}
+          <button
+            onClick={handleSearch}
+            disabled={!search.villeDepart || !search.villeArrivee}
+            style={{ margin:'0.3rem', padding:'0.85rem 1.8rem', background: (!search.villeDepart || !search.villeArrivee) ? '#9CA3AF' : '#0D1117', color:'white', border:'none', borderRadius:12, fontSize:'0.95rem', fontWeight:700, cursor: (!search.villeDepart || !search.villeArrivee) ? 'not-allowed' : 'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>
+            Trouver un trajet
+          </button>
         </div>
+
+        {/* Trajets populaires */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', flexWrap:'wrap', marginBottom:'2.5rem' }}>
+          <span style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.82rem' }}>Trajets populaires :</span>
+          {[['Béni Mellal','Casa'],['Marrakech','Rabat'],['Fès','Meknès'],['Agadir','Marrakech']].map(([dep, arr]) => (
+            <button key={dep+arr}
+              onClick={() => setSearch({...search, villeDepart:dep, villeArrivee:arr})}
+              style={{ padding:'0.3rem 0.9rem', background:'rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.85)', borderRadius:20, fontSize:'0.8rem', fontWeight:600, cursor:'pointer', border:'1px solid rgba(255,255,255,0.2)', fontFamily:'inherit' }}>
+              {dep} → {arr}
+            </button>
+          ))}
+        </div>
+
+        {/* Boutons secondaires */}
+        <div style={{ display:'flex', gap:'1rem', justifyContent:'center', flexWrap:'wrap', marginBottom:'2rem' }}>
+          <Link to="/trajets" style={{ display:'inline-flex', alignItems:'center', gap:'0.6rem', background:'var(--primary)', color:'white', padding:'0.85rem 2rem', borderRadius:10, fontWeight:700, fontSize:'0.95rem', textDecoration:'none' }}>
+            🚗 Voir tous les trajets
+          </Link>
+          <Link to="/livraison" style={{ display:'inline-flex', alignItems:'center', gap:'0.6rem', background:'rgba(255,255,255,0.1)', color:'white', padding:'0.85rem 1.8rem', borderRadius:10, border:'1.5px solid rgba(255,255,255,0.25)', fontWeight:500, fontSize:'0.95rem', textDecoration:'none' }}>
+            📦 Envoyer un colis
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display:'flex', gap:'2.5rem', justifyContent:'center', flexWrap:'wrap' }}>
+          {['✓ Conducteurs vérifiés','✓ Paiement sécurisé','✓ Plus de 45 villes'].map(t => (
+            <span key={t} style={{ color:'rgba(255,255,255,0.55)', fontSize:'0.82rem' }}>{t}</span>
+          ))}
+        </div>
+
       </div>
     </section>
   )

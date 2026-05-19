@@ -37,6 +37,10 @@ const authHeaders = () => ({
   'Authorization': `Bearer ${getToken()}`
 })
 
+const authOnlyHeaders = () => ({
+  'Authorization': `Bearer ${getToken()}`
+})
+
 // ── TRAJETS ──
 export const getTrajets = async () => {
   const res = await fetch(`${API_URL}/trajets`)
@@ -109,6 +113,7 @@ export const creerColis = async (data) => {
     headers: authHeaders(),
     body: JSON.stringify(data)
   })
+  if (!res.ok) throw new Error('Erreur création colis')
   return res.json()
 }
 
@@ -124,11 +129,158 @@ export const suivreColisOTP = async (otp) => {
   return res.json()
 }
 
-export const validerLivraisonOTP = async (otp) => {
-  const res = await fetch(`${API_URL}/colis/valider/${otp}`, {
+export const accepterPrixColis = async (id) => {
+  const res = await fetch(`${API_URL}/colis/${id}/accepter-prix`, {
     method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur')
+  return res.json()
+}
+
+export const refuserPrixColis = async (id) => {
+  const res = await fetch(`${API_URL}/colis/${id}/refuser-prix`, {
+    method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur')
+  return res.json()
+}
+
+// FIX 5 — Contre-proposer un prix (client → conducteur)
+export const contreProposerPrixColis = async (id, prix) => {
+  const res = await fetch(`${API_URL}/colis/${id}/contre-proposer`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ prix })
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(msg || 'Erreur contre-proposition')
+  }
+  return res.json()
+}
+
+// FIX 5 — Accepter la contre-offre (conducteur accepte le prix du client)
+export const accepterContreOffreColis = async (id) => {
+  const res = await fetch(`${API_URL}/colis/${id}/accepter-contre-offre`, {
+    method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(msg || 'Erreur acceptation contre-offre')
+  }
+  return res.json()
+}
+
+export const getColisEnAttente = async () => {
+  const res = await fetch(`${API_URL}/colis/en-attente`, {
     headers: authHeaders()
   })
+  return res.json()
+}
+
+//  FIX 4+5 — Toutes les demandes liées au conducteur
+export const getMesDemandes = async () => {
+  const res = await fetch(`${API_URL}/colis/mes-demandes`, {
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur chargement demandes')
+  return res.json()
+}
+
+export const proposerPrixColis = async (id, prix) => {
+  const res = await fetch(`${API_URL}/colis/${id}/proposer-prix`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ prix })
+  })
+  if (!res.ok) throw new Error('Erreur')
+  return res.json()
+}
+
+export const demarrerLivraison = async (id) => {
+  const res = await fetch(`${API_URL}/colis/${id}/demarrer`, {
+    method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur')
+  return res.json()
+}
+
+export const validerLivraisonOTP = async (id, otp) => {
+  const res = await fetch(`${API_URL}/colis/${id}/valider-livraison?otp=${otp}`, {
+    method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) throw new Error('OTP incorrect')
+  return res.json()
+}
+
+export const getMesLivraisons = async () => {
+  const res = await fetch(`${API_URL}/colis/mes-livraisons`, {
+    headers: authHeaders()
+  })
+  return res.json()
+}
+
+// ── OFFRES LIVRAISON ──
+export const getOffresLivraison = async () => {
+  const res = await fetch(`${API_URL}/offres-livraison/disponibles`, {
+    headers: authOnlyHeaders()
+  })
+  return res.json()
+}
+
+export const getOffresLivraisonPubliques = async () => {
+  const res = await fetch(`${API_URL}/offres-livraison/disponibles`)
+  return res.json()
+}
+
+export const publierOffreLivraison = async (data) => {
+  const res = await fetch(`${API_URL}/offres-livraison`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) throw new Error('Erreur')
+  return res.json()
+}
+
+export const getMesOffresLivraison = async () => {
+  const res = await fetch(`${API_URL}/offres-livraison/mes-offres`, {
+    headers: authHeaders()
+  })
+  return res.json()
+}
+
+// FIX 4 — Désactiver une offre livraison
+export const desactiverOffreLivraison = async (id) => {
+  const res = await fetch(`${API_URL}/offres-livraison/${id}/desactiver`, {
+    method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(msg || 'Erreur désactivation')
+  }
+  return res.ok
+}
+
+export const getColisDisponibles = async () => {
+  const res = await fetch(`${API_URL}/colis/disponibles`, {
+    headers: authHeaders()
+  })
+  return res.json()
+}
+
+export const prendreEnChargeColis = async (id) => {
+  const res = await fetch(`${API_URL}/colis/${id}/prendre-en-charge`, {
+    method: 'PATCH',
+    headers: authOnlyHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur')
   return res.json()
 }
 
@@ -181,6 +333,7 @@ export const bloquerUtilisateur = async (id) => {
   })
   return res.ok
 }
+
 export const debloquerUtilisateur = async (id) => {
   const res = await fetch(`${API_URL}/admin/utilisateurs/${id}/debloquer`, {
     method: 'PATCH',
@@ -188,6 +341,7 @@ export const debloquerUtilisateur = async (id) => {
   })
   return res.ok
 }
+
 // ── ÉVALUATIONS ──
 export const evaluerUtilisateur = async (data) => {
   const res = await fetch(`${API_URL}/evaluations`, {

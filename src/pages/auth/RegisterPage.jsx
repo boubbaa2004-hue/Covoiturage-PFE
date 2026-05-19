@@ -10,7 +10,8 @@ export default function RegisterPage() {
     nom:'', email:'', motDePasse:'', telephone:'', role:'CLIENT'
   })
   const [fichiers, setFichiers] = useState({
-    permis: null, cin: null, photoVoiture: null, carteGrise: null
+    permis: null, cin: null, photoVoiture: null,
+    carteGrise: null, photoProfile: null
   })
   const [marqueVoiture, setMarqueVoiture] = useState('')
   const [error, setError] = useState('')
@@ -20,61 +21,62 @@ export default function RegisterPage() {
     setFichiers(prev => ({...prev, [key]: file}))
   }
 
- const handleSubmit = async () => {
-  setError('')
-  if (!form.nom || !form.email || !form.motDePasse) {
-    setError('Veuillez remplir tous les champs obligatoires')
-    return
-  }
-  if (form.role === 'CONDUCTEUR') {
-    if (!fichiers.permis || !fichiers.cin || !fichiers.photoVoiture) {
-      setError('Permis, CIN et photo du véhicule sont obligatoires')
+  const handleSubmit = async () => {
+    setError('')
+    if (!form.nom || !form.email || !form.motDePasse) {
+      setError('Veuillez remplir tous les champs obligatoires')
       return
     }
-    if (!marqueVoiture) {
-      setError('Veuillez indiquer la marque du véhicule')
-      return
-    }
-  }
-  setLoading(true)
-  try {
-    // Étape 1 : créer le compte avec marque voiture seulement
-    const data = await register({
-      nom: form.nom,
-      email: form.email,
-      motDePasse: form.motDePasse,
-      telephone: form.telephone,
-      role: form.role,
-      marqueVoiture: marqueVoiture,
-    })
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(data))
-
-    // Étape 2 : upload les photos si conducteur
     if (form.role === 'CONDUCTEUR') {
-      const formData = new FormData()
-      formData.append('permis', fichiers.permis)
-      formData.append('cin', fichiers.cin)
-      formData.append('photoVoiture', fichiers.photoVoiture)
-      if (fichiers.carteGrise) formData.append('carteGrise', fichiers.carteGrise)
-      formData.append('marqueVoiture', marqueVoiture)
-
-      const uploadRes = await fetch('http://localhost:8080/api/documents/upload', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${data.token}` },
-        body: formData
-      })
-      console.log('Upload status:', uploadRes.status)
+      if (!fichiers.permis || !fichiers.cin || !fichiers.photoVoiture || !fichiers.photoProfile) {
+        setError('Permis, CIN, photo du véhicule et photo de profil sont obligatoires')
+        return
+      }
+      if (!marqueVoiture) {
+        setError('Veuillez indiquer la marque du véhicule')
+        return
+      }
     }
+    setLoading(true)
+    try {
+      // Étape 1 : créer le compte
+      const data = await register({
+        nom: form.nom,
+        email: form.email,
+        motDePasse: form.motDePasse,
+        telephone: form.telephone,
+        role: form.role,
+        marqueVoiture: marqueVoiture,
+      })
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data))
 
-    if (data.role === 'CLIENT') navigate('/dashboard/client')
-    else if (data.role === 'CONDUCTEUR') navigate('/dashboard/conducteur')
-  } catch (e) {
-    setError(e.message || 'Erreur lors de l\'inscription')
-  } finally {
-    setLoading(false)
+      // Étape 2 : upload les photos si conducteur
+      if (form.role === 'CONDUCTEUR') {
+        const formData = new FormData()
+        formData.append('permis', fichiers.permis)
+        formData.append('cin', fichiers.cin)
+        formData.append('photoVoiture', fichiers.photoVoiture)
+        formData.append('photoProfile', fichiers.photoProfile)
+        if (fichiers.carteGrise) formData.append('carteGrise', fichiers.carteGrise)
+        formData.append('marqueVoiture', marqueVoiture)
+
+        await fetch('http://localhost:8080/api/documents/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${data.token}` },
+          body: formData
+        })
+      }
+
+      if (data.role === 'CLIENT') navigate('/dashboard/client')
+      else if (data.role === 'CONDUCTEUR') navigate('/dashboard/conducteur')
+    } catch (e) {
+      setError(e.message || 'Erreur lors de l\'inscription')
+    } finally {
+      setLoading(false)
+    }
   }
-}
+
   const FileUpload = ({ id, label, hint, accept, fileKey }) => (
     <div style={{ marginBottom:'1.2rem' }}>
       <label style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.5px', display:'block', marginBottom:'0.4rem' }}>{label}</label>
@@ -170,6 +172,7 @@ export default function RegisterPage() {
                   style={{ width:'100%', padding:'0.85rem 1rem', border:'1.5px solid var(--border)', borderRadius:10, fontSize:'0.92rem', outline:'none', fontFamily:'inherit' }} />
               </div>
 
+              <FileUpload id="reg-profile" label="🤳 Photo de profil *" hint="Photo JPG ou PNG (votre vraie photo)" accept="image/*" fileKey="photoProfile" />
               <FileUpload id="reg-permis" label="📷 Photo Permis de conduire *" hint="Photo JPG ou PNG" accept="image/*" fileKey="permis" />
               <FileUpload id="reg-cin" label="📷 Photo Pièce d'identité (CIN) *" hint="Photo JPG ou PNG" accept="image/*" fileKey="cin" />
               <FileUpload id="reg-voiture" label="📷 Photo du véhicule *" hint="Photo JPG ou PNG" accept="image/*" fileKey="photoVoiture" />
