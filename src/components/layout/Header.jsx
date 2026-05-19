@@ -16,12 +16,6 @@ export default function Header() {
                        user?.role === 'CONDUCTEUR' ? '/dashboard/conducteur' :
                        '/dashboard/client'
 
-  // Livraison colis n'est PAS dans le menu public
-  const nav = [
-    { to: '/', label: 'Accueil' },
-    { to: '/trajets', label: 'Trajets' },
-  ]
-
   return (
     <header style={{ position:'fixed', top:0, left:0, right:0, zIndex:1000, background:'rgba(255,255,255,0.97)', backdropFilter:'blur(20px)', borderBottom:'1px solid var(--border)' }}>
       <div style={{ background:'var(--primary-dark)', padding:'0.4rem 0', textAlign:'center', fontSize:'0.78rem', color:'rgba(255,255,255,0.85)', letterSpacing:'0.3px' }}>
@@ -39,14 +33,43 @@ export default function Header() {
 
         {/* Navigation */}
         <nav style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}>
-          {nav.map(({ to, label }) => {
-            const active = location.pathname === to
-            return (
-              <Link key={to} to={to} style={{ padding:'0.5rem 1rem', borderRadius:8, color: active ? 'var(--primary)' : 'var(--muted)', fontWeight: active ? 600 : 500, textDecoration:'none', fontSize:'0.88rem', background: active ? 'var(--primary-light)' : 'transparent' }}>
-                {label}
-              </Link>
-            )
-          })}
+
+          {/* Accueil */}
+          <Link to="/"
+            style={{
+              padding:'0.5rem 1rem', borderRadius:8,
+              color: location.pathname === '/' ? 'var(--primary)' : 'var(--muted)',
+              fontWeight: location.pathname === '/' ? 600 : 500,
+              textDecoration:'none', fontSize:'0.88rem',
+              background: location.pathname === '/' ? 'var(--primary-light)' : 'transparent'
+            }}>
+            Accueil
+          </Link>
+
+          {/* ✅ Covoiturage — accessible à tous */}
+          <Link to="/trajets"
+            style={{
+              padding:'0.5rem 1rem', borderRadius:8,
+              color: location.pathname === '/trajets' ? 'var(--primary)' : 'var(--muted)',
+              fontWeight: location.pathname === '/trajets' ? 600 : 500,
+              textDecoration:'none', fontSize:'0.88rem',
+              background: location.pathname === '/trajets' ? 'var(--primary-light)' : 'transparent'
+            }}>
+             Covoiturage
+          </Link>
+
+          {/* Livraison — accessible à tous pour VOIR, connexion requise seulement pour ENVOYER */}
+          <Link to="/livraison"
+            style={{
+              padding:'0.5rem 1rem', borderRadius:8,
+              color: location.pathname === '/livraison' ? '#C2410C' : 'var(--muted)',
+              fontWeight: location.pathname === '/livraison' ? 600 : 500,
+              textDecoration:'none', fontSize:'0.88rem',
+              background: location.pathname === '/livraison' ? '#FEF0EC' : 'transparent',
+              transition:'all 0.15s'
+            }}>
+             Livraison de colis
+          </Link>
         </nav>
 
         {/* Droite */}
