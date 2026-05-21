@@ -1,10 +1,11 @@
+import Chat from '../../../components/chat/Chat' 
 import MapSuivi from '../../../components/map/MapSuivi'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../../../components/layout/Header'
 import Footer from '../../../components/layout/Footer'
 import {
-  getMesTrajets, creerTrajet, getMesNegociations,
+  getMesTrajets, creerTrajet,
   repondreNegociation, uploadDocuments, getUser, logout
 } from '../../../lib/api'
 
@@ -84,6 +85,7 @@ export default function ConducteurDashboard() {
   const user = getUser()
   const estVerifie = user?.estVerifie !== false
 
+  const [chatOuvert, setChatOuvert] = useState(null)
   const [tab, setTab] = useState('Vue générale')
   const [trajets, setTrajets] = useState([])
   const [negociations, setNegociations] = useState([])
@@ -111,19 +113,62 @@ export default function ConducteurDashboard() {
   const [offreForm, setOffreForm] = useState(emptyOffreForm)
   const [offreLoading, setOffreLoading] = useState(false)
 
-  useEffect(() => { chargerDonnees() }, [])
+  // ✅ BADGES NOTIFICATIONS
+  const [badgesLivraisons, setBadgesLivraisons] = useState(0)
+  const [badgesNegociations, setBadgesNegociations] = useState(0)
 
   const token = () => localStorage.getItem('token')
   const authHeader = () => ({ 'Authorization': `Bearer ${token()}` })
   const authJsonHeader = () => ({ 'Authorization': `Bearer ${token()}`, 'Content-Type': 'application/json' })
 
+  useEffect(() => { chargerDonnees() }, [])
+
+  // ✅ Polling badges toutes les 30s
+  useEffect(() => {
+    const pollBadges = async () => {
+      try {
+        const [demRes, negRes] = await Promise.all([
+          fetch('http://localhost:8080/api/colis/mes-demandes', { headers: authHeader() }),
+          // ✅ CORRIGÉ — endpoint conducteur
+          fetch('http://localhost:8080/api/negociations/mes-negociations-conducteur', { headers: authHeader() })
+        ])
+        if (demRes.ok) {
+          const d = await demRes.json()
+          setBadgesLivraisons(
+            Array.isArray(d)
+              ? d.filter(c => c.statut === 'CONTRE_OFFRE_CLIENT' || c.statut === 'EN_ATTENTE').length
+              : 0
+          )
+        }
+        if (negRes.ok) {
+          const n = await negRes.json()
+          setBadgesNegociations(
+            Array.isArray(n)
+              ? n.filter(x => x.statut === 'EN_COURS').length
+              : 0
+          )
+        }
+      } catch (e) {}
+    }
+    pollBadges()
+    const interval = setInterval(pollBadges, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
   const chargerDonnees = async () => {
     setLoading(true)
     setError('')
     try {
-      const [traj, neg] = await Promise.all([getMesTrajets(), getMesNegociations()])
+      // ✅ CORRIGÉ — endpoint conducteur pour négociations
+      const traj = await getMesTrajets()
       setTrajets(Array.isArray(traj) ? traj : [])
-      setNegociations(Array.isArray(neg) ? neg : [])
+
+      const negRes = await fetch(
+        'http://localhost:8080/api/negociations/mes-negociations-conducteur',
+        { headers: authHeader() }
+      )
+      const negData = negRes.ok ? await negRes.json() : []
+      setNegociations(Array.isArray(negData) ? negData : [])
 
       try {
         const res = await fetch('http://localhost:8080/api/conducteurs/moi', { headers: authHeader() })
@@ -212,19 +257,13 @@ export default function ConducteurDashboard() {
     setError('')
     try {
       const res = await fetch(`http://localhost:8080/api/offres-livraison/${offreId}/desactiver`, {
-        method: 'PATCH',
-        headers: authHeader()
+        method: 'PATCH', headers: authHeader()
       })
-      if (!res.ok) {
-        const msg = await res.text()
-        throw new Error(msg || 'Erreur serveur')
-      }
+      if (!res.ok) { const msg = await res.text(); throw new Error(msg || 'Erreur serveur') }
       setSuccess('Offre désactivée.')
       chargerDonnees()
       setTimeout(() => setSuccess(''), 3000)
-    } catch (e) {
-      setError(`Impossible de désactiver : ${e.message}`)
-    }
+    } catch (e) { setError(`Impossible de désactiver : ${e.message}`) }
   }
 
   const handleProposerPrix = async (colisId) => {
@@ -232,9 +271,7 @@ export default function ConducteurDashboard() {
     if (!prix) { setError('Entrez un prix'); return }
     try {
       const res = await fetch(`http://localhost:8080/api/colis/${colisId}/proposer-prix`, {
-        method: 'PATCH',
-        headers: authJsonHeader(),
-        body: JSON.stringify({ prix: parseFloat(prix) })
+        method: 'PATCH', headers: authJsonHeader(), body: JSON.stringify({ prix: parseFloat(prix) })
       })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Prix proposé !')
@@ -248,13 +285,9 @@ export default function ConducteurDashboard() {
     setError('')
     try {
       const res = await fetch(`http://localhost:8080/api/colis/${colisId}/accepter-contre-offre`, {
-        method: 'PATCH',
-        headers: authHeader()
+        method: 'PATCH', headers: authHeader()
       })
-      if (!res.ok) {
-        const msg = await res.text()
-        throw new Error(msg || 'Erreur serveur')
-      }
+      if (!res.ok) { const msg = await res.text(); throw new Error(msg || 'Erreur serveur') }
       setLivraisonSuccess(`Prix de ${prix} MAD accepté !`)
       chargerDonnees()
       setTimeout(() => setLivraisonSuccess(''), 3000)
@@ -265,8 +298,7 @@ export default function ConducteurDashboard() {
     setError('')
     try {
       const res = await fetch(`http://localhost:8080/api/colis/${colisId}/refuser-prix`, {
-        method: 'PATCH',
-        headers: authHeader()
+        method: 'PATCH', headers: authHeader()
       })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Demande refusée.')
@@ -279,8 +311,7 @@ export default function ConducteurDashboard() {
     setError('')
     try {
       const res = await fetch(`http://localhost:8080/api/colis/${colisId}/demarrer`, {
-        method: 'PATCH',
-        headers: authHeader()
+        method: 'PATCH', headers: authHeader()
       })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Livraison démarrée !')
@@ -295,8 +326,7 @@ export default function ConducteurDashboard() {
     setError('')
     try {
       const res = await fetch(`http://localhost:8080/api/colis/${colisId}/valider-livraison?otp=${otp}`, {
-        method: 'PATCH',
-        headers: authHeader()
+        method: 'PATCH', headers: authHeader()
       })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Livraison confirmée !')
@@ -307,10 +337,8 @@ export default function ConducteurDashboard() {
   }
 
   const handleRepondre = async (id, decision, offreContre) => {
-    try {
-      await repondreNegociation(id, decision, offreContre || null)
-      chargerDonnees()
-    } catch (e) { setError('Erreur') }
+    try { await repondreNegociation(id, decision, offreContre || null); chargerDonnees() }
+    catch (e) { setError('Erreur') }
   }
 
   const handleSoumettreDocuments = async () => {
@@ -356,8 +384,22 @@ export default function ConducteurDashboard() {
     { val: volumeTotal, label: 'Volume total', suffix: ' MAD' },
   ]
 
+  // ✅ Badge par tab
+  const getBadge = (t) => {
+    if (t === 'Mes livraisons') return badgesLivraisons
+    if (t === 'Négociations') return badgesNegociations
+    return 0
+  }
+
   return (
     <>
+      <style>{`
+        @keyframes pulse-badge {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+        }
+      `}</style>
+
       <Header />
       <div style={{ marginTop:108, background:'#F9FAFB', minHeight:'100vh' }}>
 
@@ -412,24 +454,39 @@ export default function ConducteurDashboard() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* ✅ Tabs avec badges */}
         <div style={{ background:'white', borderBottom:'1px solid #E5E7EB', position:'sticky', top:64, zIndex:10 }}>
           <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 3rem', display:'flex', overflowX:'auto' }}>
-            {TABS.map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                style={{ padding:'0.7rem 1.2rem', border:'none', background:'transparent', cursor:'pointer', fontSize:'0.95rem', fontWeight: tab===t ? 600 : 400, color: tab===t ? '#00875A' : '#6B7280', borderBottom: tab===t ? '2.5px solid #00875A' : '2.5px solid transparent', whiteSpace:'nowrap', fontFamily:'system-ui,sans-serif', transition:'all 0.15s', margin:'0.5rem 0.2rem 0' }}
-                onMouseEnter={e => { if(tab!==t) e.currentTarget.style.color='#111827' }}
-                onMouseLeave={e => { if(tab!==t) e.currentTarget.style.color='#6B7280' }}>
-                {tab === t ? (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:'0.35rem', background:'#E8F5F0', color:'#00875A', padding:'0.35rem 1rem', borderRadius:50, fontSize:'0.92rem', fontWeight:600, fontFamily:'system-ui,sans-serif' }}>
-                    <span style={{ width:5, height:5, background:'#00875A', borderRadius:'50%', display:'inline-block' }} />
-                    {t}
-                  </span>
-                ) : (
-                  <span style={{ fontFamily:'system-ui,sans-serif', fontSize:'0.92rem' }}>{t}</span>
-                )}
-              </button>
-            ))}
+            {TABS.map(t => {
+              const badge = getBadge(t)
+              return (
+                <button key={t} onClick={() => setTab(t)}
+                  style={{ padding:'0.7rem 1.2rem', border:'none', background:'transparent', cursor:'pointer', fontSize:'0.95rem', fontWeight: tab===t ? 600 : 400, color: tab===t ? '#00875A' : '#6B7280', borderBottom: tab===t ? '2.5px solid #00875A' : '2.5px solid transparent', whiteSpace:'nowrap', fontFamily:'system-ui,sans-serif', transition:'all 0.15s', margin:'0.5rem 0.2rem 0' }}
+                  onMouseEnter={e => { if(tab!==t) e.currentTarget.style.color='#111827' }}
+                  onMouseLeave={e => { if(tab!==t) e.currentTarget.style.color='#6B7280' }}>
+                  {tab === t ? (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.35rem', background:'#E8F5F0', color:'#00875A', padding:'0.35rem 1rem', borderRadius:50, fontSize:'0.92rem', fontWeight:600, fontFamily:'system-ui,sans-serif' }}>
+                      <span style={{ width:5, height:5, background:'#00875A', borderRadius:'50%', display:'inline-block' }} />
+                      {t}
+                      {badge > 0 && (
+                        <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4 }}>
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily:'system-ui,sans-serif', fontSize:'0.92rem', display:'inline-flex', alignItems:'center', gap:'0.35rem' }}>
+                      {t}
+                      {badge > 0 && (
+                        <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4, display:'inline-block', animation:'pulse-badge 2s infinite' }}>
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -680,6 +737,23 @@ export default function ConducteurDashboard() {
                           style={{ background:'#FEE2E2', color:'#7F1D1D', border:'none', borderRadius:8, padding:'0.55rem 1rem', fontWeight:600, fontSize:'0.85rem', cursor:'pointer', fontFamily:'system-ui,sans-serif' }}>
                           Refuser
                         </button>
+                        {n.statut === 'EN_COURS' && (
+                          <button
+                            onClick={() => setChatOuvert({
+                              type: 'RESERVATION',
+                              refId: n.trajetId,
+                              destinataireId: n.clientId,
+                              nomDestinataire: n.nomClient
+                            })}
+                            style={{
+                              background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                              borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
+                              fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
+                              display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                            }}>
+                            💬 Message
+                          </button>
+                        )}
                       </div>
                     )}
                   </Card>
@@ -749,7 +823,6 @@ export default function ConducteurDashboard() {
             <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
               {livraisonSuccess && <div style={{ background:'#E8F5F0', color:'#00875A', padding:'0.7rem 1rem', borderRadius:8, fontSize:'0.83rem', fontFamily:'system-ui,sans-serif', border:'1px solid #A7F3D0' }}>{livraisonSuccess}</div>}
 
-              {/* Mes offres */}
               <div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.8rem' }}>
                   <span style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', fontFamily:'system-ui,sans-serif' }}>
@@ -785,8 +858,7 @@ export default function ConducteurDashboard() {
                     <div style={{ display:'flex', alignItems:'center', gap:'0.8rem' }}>
                       <Badge statut={o.statut} />
                       {o.statut === 'ACTIF' && (
-                        <button
-                          onClick={() => handleDesactiverOffre(o.id)}
+                        <button onClick={() => handleDesactiverOffre(o.id)}
                           style={{ background:'#FEE2E2', color:'#7F1D1D', border:'1px solid #FECACA', borderRadius:6, padding:'0.35rem 0.8rem', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', fontFamily:'system-ui,sans-serif', transition:'all 0.15s' }}
                           onMouseEnter={e => { e.currentTarget.style.background='#FCA5A5'; e.currentTarget.style.transform='translateY(-1px)' }}
                           onMouseLeave={e => { e.currentTarget.style.background='#FEE2E2'; e.currentTarget.style.transform='translateY(0)' }}>
@@ -798,7 +870,6 @@ export default function ConducteurDashboard() {
                 ))}
               </div>
 
-              {/* Demandes clients */}
               <div>
                 <div style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', marginBottom:'0.8rem', fontFamily:'system-ui,sans-serif' }}>
                   Demandes clients <span style={{ fontWeight:400, color:'#6B7280' }}>({colisATraiter.length})</span>
@@ -819,7 +890,26 @@ export default function ConducteurDashboard() {
                           Destinataire : {c.nomDestinataire} ({c.telephoneDestinataire})
                         </div>
                       </div>
-                      <Badge statut={c.statut} />
+                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                        {c.statut !== 'LIVRE' && (
+                          <button
+                            onClick={() => setChatOuvert({
+                              type: 'COLIS',
+                              refId: c.id,
+                              destinataireId: c.expediteurId,
+                              nomDestinataire: c.nomExpediteur
+                            })}
+                            style={{
+                              background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                              borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
+                              fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
+                              display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                            }}>
+                            💬 Message
+                          </button>
+                        )}
+                        <Badge statut={c.statut} />
+                      </div>
                     </div>
                     {c.statut === 'CONTRE_OFFRE_CLIENT' && (
                       <div style={{ background:'#FEF9C3', borderRadius:8, padding:'0.8rem 1rem', marginBottom:'0.8rem', border:'1px solid #FDE68A' }}>
@@ -835,8 +925,7 @@ export default function ConducteurDashboard() {
                       </div>
                       <div style={{ display:'flex', gap:'0.6rem', flexWrap:'wrap', alignItems:'center' }}>
                         {c.statut === 'CONTRE_OFFRE_CLIENT' && (
-                          <button
-                            onClick={() => handleAccepterContreOffre(c.id, c.prix)}
+                          <button onClick={() => handleAccepterContreOffre(c.id, c.prix)}
                             style={{ ...btnStyle(), padding:'0.55rem 1.1rem' }}
                             onMouseEnter={e => { e.currentTarget.style.background='#005C3E'; e.currentTarget.style.transform='translateY(-1px)' }}
                             onMouseLeave={e => { e.currentTarget.style.background='#00875A'; e.currentTarget.style.transform='translateY(0)' }}>
@@ -868,7 +957,6 @@ export default function ConducteurDashboard() {
                 ))}
               </div>
 
-              {/* Colis acceptés */}
               <div>
                 <div style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', marginBottom:'0.8rem', fontFamily:'system-ui,sans-serif' }}>
                   Colis acceptés — à démarrer <span style={{ fontWeight:400, color:'#6B7280' }}>({mesLivraisons.filter(l=>l.statut==='ACCEPTE').length})</span>
@@ -885,16 +973,34 @@ export default function ConducteurDashboard() {
                         {c.description} · {c.poids} kg · Prix : <strong style={{ color:'#00875A' }}>{c.prix} MAD</strong>
                       </div>
                     </div>
-                    <button onClick={() => handleDemarrer(c.id)} style={btnStyle('#1E3A8A')}
-                      onMouseEnter={e => { e.currentTarget.style.background='#1e40af'; e.currentTarget.style.transform='translateY(-1px)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background='#1E3A8A'; e.currentTarget.style.transform='translateY(0)' }}>
-                      Démarrer la livraison
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                      {c.statut !== 'LIVRE' && (
+                        <button
+                          onClick={() => setChatOuvert({
+                            type: 'COLIS',
+                            refId: c.id,
+                            destinataireId: c.expediteurId,
+                            nomDestinataire: c.nomExpediteur
+                          })}
+                          style={{
+                            background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                            borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
+                            fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
+                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                          }}>
+                          💬 Message
+                        </button>
+                      )}
+                      <button onClick={() => handleDemarrer(c.id)} style={btnStyle('#1E3A8A')}
+                        onMouseEnter={e => { e.currentTarget.style.background='#1e40af'; e.currentTarget.style.transform='translateY(-1px)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background='#1E3A8A'; e.currentTarget.style.transform='translateY(0)' }}>
+                        Démarrer la livraison
+                      </button>
+                    </div>
                   </Card>
                 ))}
               </div>
 
-              {/* ✅ EN TRANSIT avec carte MapSuivi */}
               <div>
                 <div style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', marginBottom:'0.8rem', fontFamily:'system-ui,sans-serif' }}>
                   En transit — saisir OTP <span style={{ fontWeight:400, color:'#6B7280' }}>({mesLivraisons.filter(l=>l.statut==='EN_TRANSIT').length})</span>
@@ -912,10 +1018,27 @@ export default function ConducteurDashboard() {
                           {c.description} · Destinataire : {c.nomDestinataire} ({c.telephoneDestinataire})
                         </div>
                       </div>
-                      <Badge statut={c.statut} />
+                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                        {c.statut !== 'LIVRE' && (
+                          <button
+                            onClick={() => setChatOuvert({
+                              type: 'COLIS',
+                              refId: c.id,
+                              destinataireId: c.expediteurId,
+                              nomDestinataire: c.nomExpediteur
+                            })}
+                            style={{
+                              background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                              borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
+                              fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
+                              display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                            }}>
+                            💬 Message
+                          </button>
+                        )}
+                        <Badge statut={c.statut} />
+                      </div>
                     </div>
-
-                    {/* ✅ Carte conducteur */}
                     <div style={{ marginBottom:'1rem' }}>
                       <MapSuivi
                         colisId={c.id}
@@ -924,8 +1047,6 @@ export default function ConducteurDashboard() {
                         getToken={() => localStorage.getItem('token')}
                       />
                     </div>
-
-                    {/* OTP */}
                     <div style={{ background:'#F9FAFB', borderRadius:8, padding:'0.9rem', border:'1px solid #E5E7EB' }}>
                       <div style={{ fontSize:'0.75rem', color:'#374151', fontWeight:600, marginBottom:'0.6rem', fontFamily:'system-ui,sans-serif' }}>
                         Code OTP communiqué par le destinataire :
@@ -942,7 +1063,6 @@ export default function ConducteurDashboard() {
                 ))}
               </div>
 
-              {/* Terminées */}
               {mesLivraisons.filter(l=>l.statut==='LIVRE').length > 0 && (
                 <div>
                   <div style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', marginBottom:'0.8rem', fontFamily:'system-ui,sans-serif' }}>
@@ -1082,6 +1202,15 @@ export default function ConducteurDashboard() {
 
         </div>
       </div>
+      {chatOuvert && (
+        <Chat
+          type={chatOuvert.type}
+          refId={chatOuvert.refId}
+          destinataireId={chatOuvert.destinataireId}
+          nomDestinataire={chatOuvert.nomDestinataire}
+          onClose={() => setChatOuvert(null)}
+        />
+      )}
       <Footer />
     </>
   )

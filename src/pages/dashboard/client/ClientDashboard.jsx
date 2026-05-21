@@ -1,3 +1,4 @@
+import Chat from '../../../components/chat/Chat'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../../../components/layout/Header'
@@ -70,6 +71,24 @@ function AnimatedNumber({ value }) {
   return <span>{display}</span>
 }
 
+// ✅ Bouton chat réutilisable
+function BtnChat({ onClick }) {
+  return (
+    <button onClick={onClick}
+      style={{
+        background:'#EFF6FF', color:'#1D4ED8', border:'1px solid #BFDBFE',
+        borderRadius:8, padding:'0.4rem 0.9rem', fontSize:'0.78rem',
+        fontWeight:600, cursor:'pointer', fontFamily:'system-ui,sans-serif',
+        display:'inline-flex', alignItems:'center', gap:'0.4rem',
+        transition:'all 0.15s'
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background='#DBEAFE'; e.currentTarget.style.transform='translateY(-1px)' }}
+      onMouseLeave={e => { e.currentTarget.style.background='#EFF6FF'; e.currentTarget.style.transform='translateY(0)' }}>
+      💬 Message
+    </button>
+  )
+}
+
 const TABS = ['Vue générale', 'Mes réservations', 'Envoyer un colis', 'Mes colis', 'Négociations', 'Évaluations', 'Mon profil']
 
 const emptyColisForm = {
@@ -102,7 +121,6 @@ export default function ClientDashboard() {
   const [colisForm, setColisForm] = useState(emptyColisForm)
   const [colisCreé, setColisCreé] = useState(null)
   const [colisLoading, setColisLoading] = useState(false)
-
   const [contrePrixColis, setContrePrixColis] = useState({})
 
   const [evalForm, setEvalForm] = useState({ evalueId:'', note:5, commentaire:'' })
@@ -110,7 +128,30 @@ export default function ClientDashboard() {
   const [litigeForm, setLitigeForm] = useState({ type:'', description:'', accuseId:'' })
   const [litigeSuccess, setLitigeSuccess] = useState('')
 
+  //  CHAT STATE
+  const [chatOuvert, setChatOuvert] = useState(null)
+
+  //  BADGES NOTIFICATIONS
+  const [badgesColis, setBadgesColis] = useState(0)
+  const [badgesReservations, setBadgesReservations] = useState(0)
+
   useEffect(() => { chargerDonnees() }, [])
+
+  //  Polling badges toutes les 30s
+  useEffect(() => {
+    const pollBadges = async () => {
+      try {
+        const [col, res] = await Promise.all([getMesColis(), getMesReservations()])
+        const colArr = Array.isArray(col) ? col : []
+        const resArr = Array.isArray(res) ? res : []
+        setBadgesColis(colArr.filter(c => c.statut === 'PRIX_PROPOSE' || c.statut === 'EN_TRANSIT').length)
+        setBadgesReservations(resArr.filter(r => r.statut === 'CONFIRME').length)
+      } catch (e) {}
+    }
+    pollBadges()
+    const interval = setInterval(pollBadges, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const chargerDonnees = async () => {
     setLoading(true)
@@ -224,8 +265,21 @@ export default function ClientDashboard() {
     { val: reservations.filter(r=>r.statut==='CONFIRME').length, label: 'Confirmées' },
   ]
 
+  const getBadge = (t) => {
+    if (t === 'Mes colis') return badgesColis
+    if (t === 'Mes réservations') return badgesReservations
+    return 0
+  }
+
   return (
     <>
+      <style>{`
+        @keyframes pulse-badge {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+        }
+      `}</style>
+
       <Header />
       <div style={{ marginTop:108, background:'#F9FAFB', minHeight:'100vh' }}>
 
@@ -269,24 +323,39 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs avec badges */}
         <div style={{ background:'white', borderBottom:'1px solid #E5E7EB', position:'sticky', top:64, zIndex:10 }}>
           <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 3rem', display:'flex', overflowX:'auto' }}>
-            {TABS.map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                style={{ padding:'0.7rem 1.2rem', border:'none', background:'transparent', cursor:'pointer', fontSize:'0.95rem', fontWeight: tab===t ? 600 : 400, color: tab===t ? '#00875A' : '#6B7280', borderBottom: tab===t ? '2.5px solid #00875A' : '2.5px solid transparent', whiteSpace:'nowrap', fontFamily:'system-ui,sans-serif', transition:'all 0.15s', margin:'0.5rem 0.2rem 0' }}
-                onMouseEnter={e => { if(tab!==t) e.currentTarget.style.color='#111827' }}
-                onMouseLeave={e => { if(tab!==t) e.currentTarget.style.color='#6B7280' }}>
-                {tab === t ? (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:'0.35rem', background:'#E8F5F0', color:'#00875A', padding:'0.35rem 1rem', borderRadius:50, fontSize:'0.92rem', fontWeight:600, fontFamily:'system-ui,sans-serif' }}>
-                    <span style={{ width:5, height:5, background:'#00875A', borderRadius:'50%', display:'inline-block' }} />
-                    {t}
-                  </span>
-                ) : (
-                  <span style={{ fontFamily:'system-ui,sans-serif', fontSize:'0.92rem' }}>{t}</span>
-                )}
-              </button>
-            ))}
+            {TABS.map(t => {
+              const badge = getBadge(t)
+              return (
+                <button key={t} onClick={() => setTab(t)}
+                  style={{ padding:'0.7rem 1.2rem', border:'none', background:'transparent', cursor:'pointer', fontSize:'0.95rem', fontWeight: tab===t ? 600 : 400, color: tab===t ? '#00875A' : '#6B7280', borderBottom: tab===t ? '2.5px solid #00875A' : '2.5px solid transparent', whiteSpace:'nowrap', fontFamily:'system-ui,sans-serif', transition:'all 0.15s', margin:'0.5rem 0.2rem 0' }}
+                  onMouseEnter={e => { if(tab!==t) e.currentTarget.style.color='#111827' }}
+                  onMouseLeave={e => { if(tab!==t) e.currentTarget.style.color='#6B7280' }}>
+                  {tab === t ? (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.35rem', background:'#E8F5F0', color:'#00875A', padding:'0.35rem 1rem', borderRadius:50, fontSize:'0.92rem', fontWeight:600, fontFamily:'system-ui,sans-serif' }}>
+                      <span style={{ width:5, height:5, background:'#00875A', borderRadius:'50%', display:'inline-block' }} />
+                      {t}
+                      {badge > 0 && (
+                        <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4 }}>
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily:'system-ui,sans-serif', fontSize:'0.92rem', display:'inline-flex', alignItems:'center', gap:'0.35rem' }}>
+                      {t}
+                      {badge > 0 && (
+                        <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4, display:'inline-block', animation:'pulse-badge 2s infinite' }}>
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -396,7 +465,7 @@ export default function ClientDashboard() {
             </div>
           )}
 
-          {/* MES RESERVATIONS */}
+          {/*  MES RESERVATIONS — avec bouton  */}
           {tab === 'Mes réservations' && (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.8rem' }}>
               <div style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', fontFamily:'system-ui,sans-serif', marginBottom:'0.5rem' }}>
@@ -428,6 +497,15 @@ export default function ClientDashboard() {
                           style={{ background:'#FEE2E2', color:'#7F1D1D', border:'none', borderRadius:6, padding:'0.3rem 0.7rem', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', fontFamily:'system-ui,sans-serif' }}>
                           Annuler
                         </button>
+                      )}
+                      {/* Bouton chat réservation */}
+                      {r.statut !== 'ANNULE' && r.statut !== 'TERMINE' && r.conducteurId && (
+                        <BtnChat onClick={() => setChatOuvert({
+                          type: 'RESERVATION',
+                          refId: r.id,
+                          destinataireId: r.conducteurId,
+                          nomDestinataire: r.nomConducteur
+                        })} />
                       )}
                     </div>
                   </Card>
@@ -535,7 +613,7 @@ export default function ClientDashboard() {
                     </div>
                   </div>
                   <div style={{ background:'#DBEAFE', border:'1px solid #BFDBFE', borderRadius:8, padding:'0.8rem 1rem', marginBottom:'1.2rem', fontSize:'0.8rem', color:'#1E3A8A', fontFamily:'system-ui,sans-serif' }}>
-                    Un conducteur va prendre en charge votre colis et vous proposera un prix. Vous pourrez accepter, refuser ou négocier dans "Mes colis".
+                    Un conducteur va prendre en charge votre colis et vous proposera un prix.
                   </div>
                   <div style={{ display:'flex', gap:'0.8rem', justifyContent:'center' }}>
                     <button onClick={() => setTab('Mes colis')} style={btnStyle()}>Voir mes colis</button>
@@ -549,7 +627,7 @@ export default function ClientDashboard() {
             </div>
           )}
 
-          {/* MES COLIS */}
+          {/*  MES COLIS — avec bouton  */}
           {tab === 'Mes colis' && (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.8rem' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.5rem' }}>
@@ -572,7 +650,6 @@ export default function ClientDashboard() {
                   <Card key={c.id} style={{ padding:'1.2rem 1.5rem', transition:'box-shadow 0.2s' }}
                     onMouseEnter={e => e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}
                     onMouseLeave={e => e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'}>
-
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.8rem', marginBottom:(c.statut==='PRIX_PROPOSE'||c.statut==='CONTRE_OFFRE_CLIENT'||c.statut==='EN_TRANSIT'||c.statut==='ACCEPTE') ? '1rem' : 0 }}>
                       <div>
                         <div style={{ fontWeight:600, fontSize:'0.92rem', color:'#111827', fontFamily:'system-ui,sans-serif' }}>{c.villeDepart} → {c.villeArrivee}</div>
@@ -581,30 +658,31 @@ export default function ClientDashboard() {
                         </div>
                         {c.nomConducteur && <div style={{ fontSize:'0.73rem', color:'#00875A', marginTop:2, fontWeight:600, fontFamily:'system-ui,sans-serif' }}>Conducteur : {c.nomConducteur}</div>}
                       </div>
-                      <Badge statut={c.statut} />
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flexWrap:'wrap' }}>
+                        <Badge statut={c.statut} />
+                        {/*  Bouton chat colis */}
+                        {c.statut !== 'LIVRE' && c.conducteurId && (
+                          <BtnChat onClick={() => setChatOuvert({
+                            type: 'COLIS',
+                            refId: c.id,
+                            destinataireId: c.conducteurId,
+                            nomDestinataire: c.nomConducteur
+                          })} />
+                        )}
+                      </div>
                     </div>
 
-                    {/* ✅ OTP + Carte si EN_TRANSIT */}
                     {c.statut === 'EN_TRANSIT' && (
                       <div style={{ paddingTop:'1rem', borderTop:'1px solid #F3F4F6' }}>
-                        {/* OTP */}
                         <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap', marginBottom:'1rem' }}>
                           <span style={{ fontSize:'0.75rem', color:'#6B7280', fontFamily:'system-ui,sans-serif' }}>Code OTP :</span>
                           <div style={{ background:'#111827', color:'#FCD34D', padding:'0.35rem 0.9rem', borderRadius:6, fontFamily:'monospace', fontSize:'1.1rem', fontWeight:700, letterSpacing:5 }}>{c.codeOTP}</div>
                           <span style={{ fontSize:'0.72rem', color:'#9CA3AF', fontFamily:'system-ui,sans-serif' }}>À communiquer uniquement au destinataire</span>
                         </div>
-                        {/* ✅ Carte suivi client */}
-                        <MapSuivi
-                          colisId={c.id}
-                          mode="client"
-                          positionClient={null}
-                          nomDestinataire={c.nomDestinataire}
-                          getToken={getToken}
-                        />
+                        <MapSuivi colisId={c.id} mode="client" positionClient={null} nomDestinataire={c.nomDestinataire} getToken={getToken} />
                       </div>
                     )}
 
-                    {/* Prix proposé par conducteur */}
                     {c.statut === 'PRIX_PROPOSE' && (
                       <div style={{ paddingTop:'1rem', borderTop:'1px solid #F3F4F6' }}>
                         <div style={{ background:'#FEF9C3', borderRadius:8, padding:'0.9rem 1rem', marginBottom:'0.9rem', border:'1px solid #FDE68A', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.5rem' }}>
@@ -645,7 +723,6 @@ export default function ClientDashboard() {
                       </div>
                     )}
 
-                    {/* Contre-offre envoyée */}
                     {c.statut === 'CONTRE_OFFRE_CLIENT' && (
                       <div style={{ paddingTop:'1rem', borderTop:'1px solid #F3F4F6' }}>
                         <div style={{ background:'#EDE9FE', borderRadius:8, padding:'0.9rem 1rem', border:'1px solid #DDD6FE', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -662,7 +739,6 @@ export default function ClientDashboard() {
                       </div>
                     )}
 
-                    {/* Prix convenu */}
                     {c.statut === 'ACCEPTE' && c.prix && (
                       <div style={{ paddingTop:'0.8rem', borderTop:'1px solid #F3F4F6' }}>
                         <div style={{ fontSize:'0.75rem', color:'#374151', fontFamily:'system-ui,sans-serif' }}>
@@ -810,6 +886,18 @@ export default function ClientDashboard() {
 
         </div>
       </div>
+
+      {/*  CHAT MODAL */}
+      {chatOuvert && (
+        <Chat
+          type={chatOuvert.type}
+          refId={chatOuvert.refId}
+          destinataireId={chatOuvert.destinataireId}
+          nomDestinataire={chatOuvert.nomDestinataire}
+          onClose={() => setChatOuvert(null)}
+        />
+      )}
+
       <Footer />
     </>
   )
