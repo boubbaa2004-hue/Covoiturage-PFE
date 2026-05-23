@@ -1,5 +1,6 @@
 import Chat from '../../../components/chat/Chat' 
 import MapSuivi from '../../../components/map/MapSuivi'
+import InfosBancairesForm from '../../../components/paiement/InfosBancairesForm'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../../../components/layout/Header'
@@ -69,7 +70,25 @@ function AnimatedNumber({ value, suffix = '' }) {
   return <span>{display}{suffix}</span>
 }
 
-const TABS = ['Vue générale', 'Mes trajets', 'Négociations', 'Documents', 'Mes livraisons', 'Mon profil']
+function BtnChat({ onClick }) {
+  return (
+    <button onClick={onClick}
+      style={{
+        background:'#EFF6FF', color:'#1D4ED8',
+        border:'1px solid #BFDBFE',
+        borderRadius:8, padding:'0.4rem 0.9rem', fontSize:'0.78rem',
+        fontWeight:600, cursor:'pointer', fontFamily:'system-ui,sans-serif',
+        display:'inline-flex', alignItems:'center', gap:'0.4rem',
+        transition:'all 0.15s'
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background='#DBEAFE'; e.currentTarget.style.transform='translateY(-1px)' }}
+      onMouseLeave={e => { e.currentTarget.style.background='#EFF6FF'; e.currentTarget.style.transform='translateY(0)' }}>
+       Message
+    </button>
+  )
+}
+
+const TABS = ['Vue générale', 'Mes trajets', 'Négociations', 'Documents', 'Mes livraisons', 'Messages', 'Mon profil']
 
 const emptyForm = {
   villeDepart:'', villeArrivee:'', dateHeure:'',
@@ -113,9 +132,15 @@ export default function ConducteurDashboard() {
   const [offreForm, setOffreForm] = useState(emptyOffreForm)
   const [offreLoading, setOffreLoading] = useState(false)
 
-  // ✅ BADGES NOTIFICATIONS
   const [badgesLivraisons, setBadgesLivraisons] = useState(0)
   const [badgesNegociations, setBadgesNegociations] = useState(0)
+  const [totalNonLus, setTotalNonLus] = useState(0)
+  const [conversations, setConversations] = useState([])
+  const [convLoading, setConvLoading] = useState(false)
+
+  //  PAIEMENTS
+  const [paiementsAValider, setPaiementsAValider] = useState([])
+  const [noteValidation, setNoteValidation] = useState({})
 
   const token = () => localStorage.getItem('token')
   const authHeader = () => ({ 'Authorization': `Bearer ${token()}` })
@@ -123,30 +148,20 @@ export default function ConducteurDashboard() {
 
   useEffect(() => { chargerDonnees() }, [])
 
-  // ✅ Polling badges toutes les 30s
   useEffect(() => {
     const pollBadges = async () => {
       try {
         const [demRes, negRes] = await Promise.all([
           fetch('http://localhost:8080/api/colis/mes-demandes', { headers: authHeader() }),
-          // ✅ CORRIGÉ — endpoint conducteur
           fetch('http://localhost:8080/api/negociations/mes-negociations-conducteur', { headers: authHeader() })
         ])
         if (demRes.ok) {
           const d = await demRes.json()
-          setBadgesLivraisons(
-            Array.isArray(d)
-              ? d.filter(c => c.statut === 'CONTRE_OFFRE_CLIENT' || c.statut === 'EN_ATTENTE').length
-              : 0
-          )
+          setBadgesLivraisons(Array.isArray(d) ? d.filter(c => c.statut === 'CONTRE_OFFRE_CLIENT' || c.statut === 'EN_ATTENTE').length : 0)
         }
         if (negRes.ok) {
           const n = await negRes.json()
-          setBadgesNegociations(
-            Array.isArray(n)
-              ? n.filter(x => x.statut === 'EN_COURS').length
-              : 0
-          )
+          setBadgesNegociations(Array.isArray(n) ? n.filter(x => x.statut === 'EN_COURS').length : 0)
         }
       } catch (e) {}
     }
@@ -155,18 +170,62 @@ export default function ConducteurDashboard() {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    const pollMessages = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/messages/non-lus', { headers: authHeader() })
+        if (res.ok) {
+          const data = await res.json()
+          setTotalNonLus(data.count || 0)
+        }
+      } catch (e) {}
+    }
+    pollMessages()
+    const interval = setInterval(pollMessages, 10000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Polling paiements à valider toutes les 30s
+  useEffect(() => {
+    const pollPaiements = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/paiements/a-valider', { headers: authHeader() })
+        if (res.ok) setPaiementsAValider(await res.json())
+      } catch (e) {}
+    }
+    pollPaiements()
+    const interval = setInterval(pollPaiements, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const chargerConversations = async () => {
+    setConvLoading(true)
+    try {
+      const res = await fetch('http://localhost:8080/api/messages/mes-conversations', { headers: authHeader() })
+      if (res.ok) setConversations(await res.json())
+    } catch (e) {}
+    finally { setConvLoading(false) }
+  }
+
+  const fermerChat = () => {
+    setChatOuvert(null)
+    setTimeout(() => {
+      fetch('http://localhost:8080/api/messages/non-lus', { headers: authHeader() })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setTotalNonLus(d.count || 0) })
+        .catch(() => {})
+      if (tab === 'Messages') chargerConversations()
+    }, 500)
+  }
+
   const chargerDonnees = async () => {
     setLoading(true)
     setError('')
     try {
-      // ✅ CORRIGÉ — endpoint conducteur pour négociations
       const traj = await getMesTrajets()
       setTrajets(Array.isArray(traj) ? traj : [])
 
-      const negRes = await fetch(
-        'http://localhost:8080/api/negociations/mes-negociations-conducteur',
-        { headers: authHeader() }
-      )
+      const negRes = await fetch('http://localhost:8080/api/negociations/mes-negociations-conducteur', { headers: authHeader() })
       const negData = negRes.ok ? await negRes.json() : []
       setNegociations(Array.isArray(negData) ? negData : [])
 
@@ -189,12 +248,14 @@ export default function ConducteurDashboard() {
         const demRes = await fetch('http://localhost:8080/api/colis/mes-demandes', { headers: authHeader() })
         if (demRes.ok) {
           const demandes = await demRes.json()
-          setColisATraiter(
-            Array.isArray(demandes)
-              ? demandes.filter(c => c.statut === 'EN_ATTENTE' || c.statut === 'CONTRE_OFFRE_CLIENT')
-              : []
-          )
+          setColisATraiter(Array.isArray(demandes) ? demandes.filter(c => c.statut === 'EN_ATTENTE' || c.statut === 'CONTRE_OFFRE_CLIENT') : [])
         }
+      } catch (e) {}
+
+      // Charger paiements à valider
+      try {
+        const paiRes = await fetch('http://localhost:8080/api/paiements/a-valider', { headers: authHeader() })
+        if (paiRes.ok) setPaiementsAValider(await paiRes.json())
       } catch (e) {}
 
     } catch (e) {
@@ -204,12 +265,44 @@ export default function ConducteurDashboard() {
     }
   }
 
+  //  Valider réception paiement
+  const handleValiderPaiement = async (paiementId) => {
+    setError('')
+    try {
+      const res = await fetch(`http://localhost:8080/api/paiements/${paiementId}/valider`, {
+        method: 'PATCH', headers: authJsonHeader(),
+        body: JSON.stringify({ note: noteValidation[paiementId] || 'Paiement bien reçu, merci !' })
+      })
+      if (!res.ok) throw new Error()
+      setSuccess(' Paiement validé !')
+      setNoteValidation(prev => { const n = {...prev}; delete n[paiementId]; return n })
+      chargerDonnees()
+      setTimeout(() => setSuccess(''), 4000)
+    } catch (e) { setError('Erreur lors de la validation') }
+  }
+
+  //  Contester paiement
+  const handleContesterPaiement = async (paiementId) => {
+    const note = noteValidation[paiementId]
+    if (!note?.trim()) { setError('Indiquez le motif de la contestation'); return }
+    setError('')
+    try {
+      const res = await fetch(`http://localhost:8080/api/paiements/${paiementId}/contester`, {
+        method: 'PATCH', headers: authJsonHeader(),
+        body: JSON.stringify({ note })
+      })
+      if (!res.ok) throw new Error()
+      setSuccess('Contestation envoyée au client.')
+      chargerDonnees()
+      setTimeout(() => setSuccess(''), 4000)
+    } catch (e) { setError('Erreur lors de la contestation') }
+  }
+
   const handleCreerTrajet = async () => {
     if (!form.villeDepart || !form.villeArrivee || !form.dateHeure || !form.placesDisponibles || !form.prixParPlace) {
       setError('Veuillez remplir tous les champs obligatoires'); return
     }
-    setFormLoading(true)
-    setError('')
+    setFormLoading(true); setError('')
     try {
       await creerTrajet({
         ...form,
@@ -218,15 +311,11 @@ export default function ConducteurDashboard() {
         volumeCoffre: form.volumeCoffre ? parseFloat(form.volumeCoffre) : null,
       })
       setSuccess('Trajet publié.')
-      setShowForm(false)
-      setForm(emptyForm)
+      setShowForm(false); setForm(emptyForm)
       chargerDonnees()
       setTimeout(() => setSuccess(''), 3000)
-    } catch (e) {
-      setError('Erreur lors de la publication')
-    } finally {
-      setFormLoading(false)
-    }
+    } catch (e) { setError('Erreur lors de la publication') }
+    finally { setFormLoading(false) }
   }
 
   const handlePublierOffre = async () => {
@@ -236,29 +325,22 @@ export default function ConducteurDashboard() {
     setOffreLoading(true)
     try {
       const res = await fetch('http://localhost:8080/api/offres-livraison', {
-        method: 'POST',
-        headers: authJsonHeader(),
+        method: 'POST', headers: authJsonHeader(),
         body: JSON.stringify({ ...offreForm, prixParKg: parseFloat(offreForm.prixParKg), poidsMax: parseFloat(offreForm.poidsMax) })
       })
       if (!res.ok) throw new Error()
       setSuccess('Offre publiée !')
-      setShowOffreForm(false)
-      setOffreForm(emptyOffreForm)
+      setShowOffreForm(false); setOffreForm(emptyOffreForm)
       chargerDonnees()
       setTimeout(() => setSuccess(''), 3000)
-    } catch (e) {
-      setError("Erreur lors de la publication")
-    } finally {
-      setOffreLoading(false)
-    }
+    } catch (e) { setError("Erreur lors de la publication") }
+    finally { setOffreLoading(false) }
   }
 
   const handleDesactiverOffre = async (offreId) => {
     setError('')
     try {
-      const res = await fetch(`http://localhost:8080/api/offres-livraison/${offreId}/desactiver`, {
-        method: 'PATCH', headers: authHeader()
-      })
+      const res = await fetch(`http://localhost:8080/api/offres-livraison/${offreId}/desactiver`, { method: 'PATCH', headers: authHeader() })
       if (!res.ok) { const msg = await res.text(); throw new Error(msg || 'Erreur serveur') }
       setSuccess('Offre désactivée.')
       chargerDonnees()
@@ -284,9 +366,7 @@ export default function ConducteurDashboard() {
   const handleAccepterContreOffre = async (colisId, prix) => {
     setError('')
     try {
-      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/accepter-contre-offre`, {
-        method: 'PATCH', headers: authHeader()
-      })
+      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/accepter-contre-offre`, { method: 'PATCH', headers: authHeader() })
       if (!res.ok) { const msg = await res.text(); throw new Error(msg || 'Erreur serveur') }
       setLivraisonSuccess(`Prix de ${prix} MAD accepté !`)
       chargerDonnees()
@@ -297,9 +377,7 @@ export default function ConducteurDashboard() {
   const handleRefuserPrix = async (colisId) => {
     setError('')
     try {
-      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/refuser-prix`, {
-        method: 'PATCH', headers: authHeader()
-      })
+      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/refuser-prix`, { method: 'PATCH', headers: authHeader() })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Demande refusée.')
       chargerDonnees()
@@ -310,9 +388,7 @@ export default function ConducteurDashboard() {
   const handleDemarrer = async (colisId) => {
     setError('')
     try {
-      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/demarrer`, {
-        method: 'PATCH', headers: authHeader()
-      })
+      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/demarrer`, { method: 'PATCH', headers: authHeader() })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Livraison démarrée !')
       chargerDonnees()
@@ -325,9 +401,7 @@ export default function ConducteurDashboard() {
     if (!otp || otp.length !== 6) { setError('OTP de 6 chiffres requis'); return }
     setError('')
     try {
-      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/valider-livraison?otp=${otp}`, {
-        method: 'PATCH', headers: authHeader()
-      })
+      const res = await fetch(`http://localhost:8080/api/colis/${colisId}/valider-livraison?otp=${otp}`, { method: 'PATCH', headers: authHeader() })
       if (!res.ok) throw new Error()
       setLivraisonSuccess('Livraison confirmée !')
       setOtpSaisie({...otpSaisie, [colisId]: ''})
@@ -384,11 +458,25 @@ export default function ConducteurDashboard() {
     { val: volumeTotal, label: 'Volume total', suffix: ' MAD' },
   ]
 
-  // ✅ Badge par tab
   const getBadge = (t) => {
     if (t === 'Mes livraisons') return badgesLivraisons
     if (t === 'Négociations') return badgesNegociations
+    if (t === 'Messages') return totalNonLus
+    //  Badge paiements à valider sur Vue générale
+    if (t === 'Vue générale') return paiementsAValider.length
     return 0
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    const now = new Date()
+    if (d.toDateString() === now.toDateString())
+      return d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+    const hier = new Date(now)
+    hier.setDate(now.getDate() - 1)
+    if (d.toDateString() === hier.toDateString()) return 'Hier'
+    return d.toLocaleDateString('fr-FR', { day:'numeric', month:'short' })
   }
 
   return (
@@ -396,7 +484,15 @@ export default function ConducteurDashboard() {
       <style>{`
         @keyframes pulse-badge {
           0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.2); }
+          50% { transform: scale(1.25); }
+        }
+        @keyframes slide-in {
+          from { opacity:0; transform:translateY(-8px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes pulse-gold {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+          50% { box-shadow: 0 0 0 8px rgba(245,158,11,0); }
         }
       `}</style>
 
@@ -407,13 +503,20 @@ export default function ConducteurDashboard() {
         <div style={{ background:'#111827', padding:'2rem 3rem' }}>
           <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'1rem' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'1.2rem' }}>
-              <div style={{ width:60, height:60, borderRadius:'50%', overflow:'hidden', border:'2.5px solid rgba(0,135,90,0.5)', flexShrink:0, boxShadow:'0 0 0 4px rgba(0,135,90,0.15)' }}>
-                {conducteurInfo?.photoProfile ? (
-                  <img src={`http://localhost:8080/api/documents/fichier/${conducteurInfo.photoProfile}`}
-                    alt={user?.nom} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                ) : (
-                  <div style={{ width:'100%', height:'100%', background:'#00875A', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:'1.2rem', color:'white', fontFamily:'system-ui,sans-serif' }}>
-                    {user?.nom?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || 'C'}
+              <div style={{ position:'relative' }}>
+                <div style={{ width:60, height:60, borderRadius:'50%', overflow:'hidden', border:'2.5px solid rgba(0,135,90,0.5)', flexShrink:0, boxShadow:'0 0 0 4px rgba(0,135,90,0.15)' }}>
+                  {conducteurInfo?.photoProfile ? (
+                    <img src={`http://localhost:8080/api/documents/fichier/${conducteurInfo.photoProfile}`}
+                      alt={user?.nom} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  ) : (
+                    <div style={{ width:'100%', height:'100%', background:'#00875A', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:'1.2rem', color:'white', fontFamily:'system-ui,sans-serif' }}>
+                      {user?.nom?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || 'C'}
+                    </div>
+                  )}
+                </div>
+                {totalNonLus > 0 && (
+                  <div style={{ position:'absolute', top:-4, right:-4, background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.62rem', fontWeight:700, padding:'0.1rem 0.4rem', minWidth:18, textAlign:'center', border:'2px solid #111827', lineHeight:1.5, animation:'pulse-badge 1.5s infinite' }}>
+                    {totalNonLus}
                   </div>
                 )}
               </div>
@@ -445,7 +548,6 @@ export default function ConducteurDashboard() {
           </div>
         </div>
 
-        {/* Bandeau non vérifié */}
         {!estVerifie && (
           <div style={{ background:'#FFFBEB', borderBottom:'1px solid #FDE68A', padding:'0.8rem 3rem' }}>
             <div style={{ maxWidth:1280, margin:'0 auto', fontSize:'0.83rem', color:'#92400E', fontFamily:'system-ui,sans-serif' }}>
@@ -454,13 +556,14 @@ export default function ConducteurDashboard() {
           </div>
         )}
 
-        {/* ✅ Tabs avec badges */}
+        {/* Tabs */}
         <div style={{ background:'white', borderBottom:'1px solid #E5E7EB', position:'sticky', top:64, zIndex:10 }}>
           <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 3rem', display:'flex', overflowX:'auto' }}>
             {TABS.map(t => {
               const badge = getBadge(t)
               return (
-                <button key={t} onClick={() => setTab(t)}
+                <button key={t}
+                  onClick={() => { setTab(t); if (t === 'Messages') chargerConversations() }}
                   style={{ padding:'0.7rem 1.2rem', border:'none', background:'transparent', cursor:'pointer', fontSize:'0.95rem', fontWeight: tab===t ? 600 : 400, color: tab===t ? '#00875A' : '#6B7280', borderBottom: tab===t ? '2.5px solid #00875A' : '2.5px solid transparent', whiteSpace:'nowrap', fontFamily:'system-ui,sans-serif', transition:'all 0.15s', margin:'0.5rem 0.2rem 0' }}
                   onMouseEnter={e => { if(tab!==t) e.currentTarget.style.color='#111827' }}
                   onMouseLeave={e => { if(tab!==t) e.currentTarget.style.color='#6B7280' }}>
@@ -469,7 +572,7 @@ export default function ConducteurDashboard() {
                       <span style={{ width:5, height:5, background:'#00875A', borderRadius:'50%', display:'inline-block' }} />
                       {t}
                       {badge > 0 && (
-                        <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4 }}>
+                        <span style={{ background: t === 'Vue générale' ? '#F59E0B' : '#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4 }}>
                           {badge}
                         </span>
                       )}
@@ -478,7 +581,7 @@ export default function ConducteurDashboard() {
                     <span style={{ fontFamily:'system-ui,sans-serif', fontSize:'0.92rem', display:'inline-flex', alignItems:'center', gap:'0.35rem' }}>
                       {t}
                       {badge > 0 && (
-                        <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4, display:'inline-block', animation:'pulse-badge 2s infinite' }}>
+                        <span style={{ background: t === 'Vue générale' ? '#F59E0B' : '#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', lineHeight:1.4, display:'inline-block', animation:'pulse-badge 2s infinite' }}>
                           {badge}
                         </span>
                       )}
@@ -490,7 +593,7 @@ export default function ConducteurDashboard() {
           </div>
         </div>
 
-        {/* Modal trajet */}
+        {/* Modals */}
         {showForm && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
             <div style={{ background:'white', borderRadius:14, padding:'2rem', width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}>
@@ -527,7 +630,6 @@ export default function ConducteurDashboard() {
           </div>
         )}
 
-        {/* Modal offre livraison */}
         {showOffreForm && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
             <div style={{ background:'white', borderRadius:14, padding:'2rem', width:'100%', maxWidth:480, boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}>
@@ -580,9 +682,121 @@ export default function ConducteurDashboard() {
           {error && !showForm && !showOffreForm && <div style={{ background:'#FEF2F2', color:'#7F1D1D', padding:'0.7rem 1rem', borderRadius:8, marginBottom:'1rem', fontSize:'0.83rem', fontFamily:'system-ui,sans-serif', border:'1px solid #FECACA' }}>{error}</div>}
           {success && <div style={{ background:'#E8F5F0', color:'#00875A', padding:'0.7rem 1rem', borderRadius:8, marginBottom:'1rem', fontSize:'0.83rem', fontFamily:'system-ui,sans-serif', border:'1px solid #A7F3D0' }}>{success}</div>}
 
+          {totalNonLus > 0 && tab !== 'Messages' && (
+            <div onClick={() => { setTab('Messages'); chargerConversations() }}
+              style={{ background:'linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%)', borderRadius:12, padding:'1rem 1.5rem', marginBottom:'1.2rem', display:'flex', alignItems:'center', gap:'1rem', fontFamily:'system-ui,sans-serif', boxShadow:'0 4px 16px rgba(29,78,216,0.25)', animation:'slide-in 0.3s ease', cursor:'pointer', transition:'opacity 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity='0.92'}
+              onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+              <div style={{ fontSize:'1.6rem', flexShrink:0 }}>💬</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, color:'white', fontSize:'0.92rem' }}>{totalNonLus} nouveau{totalNonLus > 1 ? 'x' : ''} message{totalNonLus > 1 ? 's' : ''} non lu{totalNonLus > 1 ? 's' : ''}</div>
+                <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.75)', marginTop:2 }}>Cliquer pour voir vos messages →</div>
+              </div>
+              <div style={{ background:'white', color:'#1D4ED8', borderRadius:50, fontSize:'0.82rem', fontWeight:800, padding:'0.3rem 0.9rem', minWidth:28, textAlign:'center' }}>{totalNonLus}</div>
+            </div>
+          )}
+
           {/* VUE GENERALE */}
           {tab === 'Vue générale' && (
             <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+
+              {/* PAIEMENTS À VALIDER — Style P2P Binance */}
+              {paiementsAValider.length > 0 && (
+                <Card style={{ border:'2px solid #F59E0B', overflow:'hidden' }}>
+                  <div style={{ padding:'1rem 1.5rem', background:'linear-gradient(135deg,#FFFBEB,#FEF3C7)', borderBottom:'1px solid #FDE68A', display:'flex', alignItems:'center', gap:'0.8rem' }}>
+                    <div style={{ width:36, height:36, borderRadius:'50%', background:'#F59E0B', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1rem', animation:'pulse-gold 2s infinite' }}>
+                      💰
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:'0.9rem', color:'#713F12', fontFamily:'system-ui,sans-serif' }}>
+                        {paiementsAValider.length} paiement{paiementsAValider.length > 1 ? 's' : ''} en attente de validation
+                      </div>
+                      <div style={{ fontSize:'0.72rem', color:'#92400E', fontFamily:'system-ui,sans-serif', marginTop:1 }}>
+                        Confirmez ou contestez les paiements reçus
+                      </div>
+                    </div>
+                    <span style={{ background:'#F59E0B', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.15rem 0.6rem', animation:'pulse-badge 1.5s infinite' }}>
+                      ACTION REQUISE
+                    </span>
+                  </div>
+
+                  {paiementsAValider.map((p, i) => (
+                    <div key={p.id} style={{ padding:'1.2rem 1.5rem', borderBottom: i < paiementsAValider.length - 1 ? '1px solid #FEF9C3' : 'none' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.9rem', flexWrap:'wrap', gap:'0.5rem' }}>
+                        <div>
+                          <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:4 }}>
+                            <div style={{ width:38, height:38, borderRadius:'50%', background:'#E8F5F0', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, color:'#00875A', fontFamily:'system-ui,sans-serif', fontSize:'0.85rem', flexShrink:0 }}>
+                              {p.nomPayeur?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || '??'}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight:700, fontSize:'0.9rem', color:'#111827', fontFamily:'system-ui,sans-serif' }}>{p.nomPayeur}</div>
+                              <div style={{ fontSize:'0.72rem', color:'#6B7280', fontFamily:'system-ui,sans-serif' }}>
+                                {p.type === 'COVOITURAGE' ? '🚗 Covoiturage' : '📦 Livraison colis'}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize:'0.72rem', color:'#9CA3AF', fontFamily:'system-ui,sans-serif' }}>
+                            Déclaré le {new Date(p.datePaiementClient).toLocaleString('fr-FR')}
+                          </div>
+                        </div>
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontWeight:800, fontSize:'1.6rem', color:'#00875A', fontFamily:'system-ui,sans-serif', lineHeight:1 }}>{p.montant}</div>
+                          <div style={{ fontSize:'0.72rem', color:'#6B7280', fontFamily:'system-ui,sans-serif' }}>MAD</div>
+                          <div style={{ marginTop:4, display:'inline-flex', alignItems:'center', gap:'0.3rem', background:'#DBEAFE', color:'#1E3A8A', padding:'0.2rem 0.6rem', borderRadius:50, fontSize:'0.7rem', fontWeight:600, fontFamily:'system-ui,sans-serif' }}>
+                            {p.methode === 'ESPECES' ? '💵 Espèces' : p.methode === 'VIREMENT' ? '🏦 Virement' : '💳 CMI'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Référence client */}
+                      {p.referenceClient && (
+                        <div style={{ background:'#F9FAFB', border:'1px solid #E5E7EB', borderRadius:8, padding:'0.7rem 1rem', marginBottom:'0.9rem', display:'flex', alignItems:'center', gap:'0.8rem' }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:'0.68rem', color:'#6B7280', fontFamily:'system-ui,sans-serif', marginBottom:2, textTransform:'uppercase', fontWeight:600 }}>
+                              Référence de transaction fournie
+                            </div>
+                            <div style={{ fontFamily:'monospace', fontWeight:700, color:'#111827', fontSize:'0.9rem' }}>{p.referenceClient}</div>
+                          </div>
+                          <div style={{ fontSize:'1.2rem' }}>🔍</div>
+                        </div>
+                      )}
+
+                      {/* Instruction espèces */}
+                      {p.methode === 'ESPECES' && (
+                        <div style={{ background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'0.7rem 1rem', marginBottom:'0.9rem', fontSize:'0.78rem', color:'#92400E', fontFamily:'system-ui,sans-serif' }}>
+                           Le client confirme vous avoir remis <strong>{p.montant} MAD</strong> en espèces. Validez uniquement si vous avez bien reçu la somme.
+                        </div>
+                      )}
+
+                      {/* Note conducteur */}
+                      <div style={{ marginBottom:'0.8rem' }}>
+                        <input type="text"
+                          placeholder={`Message pour ${p.nomPayeur} (optionnel pour validation, obligatoire pour contestation)`}
+                          value={noteValidation[p.id] || ''}
+                          onChange={e => setNoteValidation({...noteValidation, [p.id]: e.target.value})}
+                          style={{ width:'100%', padding:'0.65rem 0.9rem', border:'1px solid #D1D5DB', borderRadius:8, fontSize:'0.82rem', outline:'none', fontFamily:'system-ui,sans-serif', color:'#111827', boxSizing:'border-box' }} />
+                      </div>
+
+                      {/* Boutons P2P */}
+                      <div style={{ display:'flex', gap:'0.6rem' }}>
+                        <button onClick={() => handleValiderPaiement(p.id)}
+                          style={{ flex:2, padding:'0.75rem', background:'linear-gradient(135deg,#00875A,#005C3E)', color:'white', border:'none', borderRadius:8, fontWeight:700, fontSize:'0.85rem', cursor:'pointer', fontFamily:'system-ui,sans-serif', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', boxShadow:'0 2px 8px rgba(0,135,90,0.3)' }}
+                          onMouseEnter={e => e.currentTarget.style.opacity='0.9'}
+                          onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                           J'ai bien reçu {p.montant} MAD
+                        </button>
+                        <button onClick={() => handleContesterPaiement(p.id)}
+                          style={{ flex:1, padding:'0.75rem', background:'#FEE2E2', color:'#7F1D1D', border:'1px solid #FECACA', borderRadius:8, fontWeight:600, fontSize:'0.82rem', cursor:'pointer', fontFamily:'system-ui,sans-serif' }}
+                          onMouseEnter={e => e.currentTarget.style.background='#FCA5A5'}
+                          onMouseLeave={e => e.currentTarget.style.background='#FEE2E2'}>
+                           Pas reçu
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </Card>
+              )}
+
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'1rem' }}>
                 {stats.map(({ val, label, suffix }) => (
                   <Card key={label}
@@ -737,23 +951,7 @@ export default function ConducteurDashboard() {
                           style={{ background:'#FEE2E2', color:'#7F1D1D', border:'none', borderRadius:8, padding:'0.55rem 1rem', fontWeight:600, fontSize:'0.85rem', cursor:'pointer', fontFamily:'system-ui,sans-serif' }}>
                           Refuser
                         </button>
-                        {n.statut === 'EN_COURS' && (
-                          <button
-                            onClick={() => setChatOuvert({
-                              type: 'RESERVATION',
-                              refId: n.trajetId,
-                              destinataireId: n.clientId,
-                              nomDestinataire: n.nomClient
-                            })}
-                            style={{
-                              background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
-                              borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
-                              fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
-                              display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-                            }}>
-                            💬 Message
-                          </button>
-                        )}
+                        <BtnChat onClick={() => setChatOuvert({ type:'RESERVATION', refId:n.trajetId, destinataireId:n.clientId, nomDestinataire:n.nomClient })} />
                       </div>
                     )}
                   </Card>
@@ -828,8 +1026,7 @@ export default function ConducteurDashboard() {
                   <span style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', fontFamily:'system-ui,sans-serif' }}>
                     Mes offres <span style={{ fontWeight:400, color:'#6B7280' }}>({offresLivraison.length})</span>
                   </span>
-                  <button onClick={() => estVerifie ? setShowOffreForm(true) : null}
-                    style={btnStyle('#C2410C')}
+                  <button onClick={() => estVerifie ? setShowOffreForm(true) : null} style={btnStyle('#C2410C')}
                     onMouseEnter={e => { e.currentTarget.style.background='#9A3412'; e.currentTarget.style.transform='translateY(-1px)' }}
                     onMouseLeave={e => { e.currentTarget.style.background='#C2410C'; e.currentTarget.style.transform='translateY(0)' }}>
                     + Nouvelle offre
@@ -847,11 +1044,7 @@ export default function ConducteurDashboard() {
                     <div>
                       <div style={{ fontWeight:600, fontSize:'0.9rem', color:'#111827', fontFamily:'system-ui,sans-serif' }}>{o.villeDepart} → {o.villeArrivee}</div>
                       <div style={{ fontSize:'0.75rem', color:'#6B7280', marginTop:2, fontFamily:'system-ui,sans-serif' }}>
-                        {o.prixParKg} MAD/kg
-                        {o.poidsRestant !== undefined && o.poidsRestant !== null ? ` · Restant : ` : ` · Max : `}
-                        <strong style={{ color: (o.poidsRestant ?? o.poidsMax) <= 0 ? '#7F1D1D' : '#00875A' }}>
-                          {o.poidsRestant ?? o.poidsMax} kg
-                        </strong>
+                        {o.prixParKg} MAD/kg · Max : <strong style={{ color:'#00875A' }}>{o.poidsRestant ?? o.poidsMax} kg</strong>
                         {o.description ? ` · ${o.description}` : ''}
                       </div>
                     </div>
@@ -859,7 +1052,7 @@ export default function ConducteurDashboard() {
                       <Badge statut={o.statut} />
                       {o.statut === 'ACTIF' && (
                         <button onClick={() => handleDesactiverOffre(o.id)}
-                          style={{ background:'#FEE2E2', color:'#7F1D1D', border:'1px solid #FECACA', borderRadius:6, padding:'0.35rem 0.8rem', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', fontFamily:'system-ui,sans-serif', transition:'all 0.15s' }}
+                          style={{ background:'#FEE2E2', color:'#7F1D1D', border:'1px solid #FECACA', borderRadius:6, padding:'0.35rem 0.8rem', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', fontFamily:'system-ui,sans-serif' }}
                           onMouseEnter={e => { e.currentTarget.style.background='#FCA5A5'; e.currentTarget.style.transform='translateY(-1px)' }}
                           onMouseLeave={e => { e.currentTarget.style.background='#FEE2E2'; e.currentTarget.style.transform='translateY(0)' }}>
                           Désactiver
@@ -890,32 +1083,16 @@ export default function ConducteurDashboard() {
                           Destinataire : {c.nomDestinataire} ({c.telephoneDestinataire})
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                      <div style={{ display:'flex', gap:'0.8rem', alignItems:'center' }}>
                         {c.statut !== 'LIVRE' && (
-                          <button
-                            onClick={() => setChatOuvert({
-                              type: 'COLIS',
-                              refId: c.id,
-                              destinataireId: c.expediteurId,
-                              nomDestinataire: c.nomExpediteur
-                            })}
-                            style={{
-                              background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
-                              borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
-                              fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
-                              display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-                            }}>
-                            💬 Message
-                          </button>
+                          <BtnChat onClick={() => setChatOuvert({ type:'COLIS', refId:c.id, destinataireId:c.expediteurId, nomDestinataire:c.nomExpediteur })} />
                         )}
                         <Badge statut={c.statut} />
                       </div>
                     </div>
                     {c.statut === 'CONTRE_OFFRE_CLIENT' && (
                       <div style={{ background:'#FEF9C3', borderRadius:8, padding:'0.8rem 1rem', marginBottom:'0.8rem', border:'1px solid #FDE68A' }}>
-                        <div style={{ fontSize:'0.72rem', color:'#713F12', fontFamily:'system-ui,sans-serif', fontWeight:600, textTransform:'uppercase', marginBottom:2 }}>
-                          Le client contre-propose :
-                        </div>
+                        <div style={{ fontSize:'0.72rem', color:'#713F12', fontFamily:'system-ui,sans-serif', fontWeight:600, textTransform:'uppercase', marginBottom:2 }}>Le client contre-propose :</div>
                         <div style={{ fontSize:'1.4rem', fontWeight:800, color:'#713F12', fontFamily:'system-ui,sans-serif' }}>{c.prix} MAD</div>
                       </div>
                     )}
@@ -939,14 +1116,14 @@ export default function ConducteurDashboard() {
                             onChange={e => setPrixSaisie({...prixSaisie, [c.id]: e.target.value})}
                             style={{ flex:1, padding:'0.6rem 0.8rem', border:'1px solid #D1D5DB', borderRadius:6, fontSize:'0.88rem', outline:'none', fontFamily:'system-ui,sans-serif', color:'#111827' }} />
                           <button onClick={() => handleProposerPrix(c.id)}
-                            style={{ background:'#111827', color:'white', border:'none', borderRadius:6, padding:'0.6rem 1rem', fontWeight:600, fontSize:'0.82rem', cursor:'pointer', fontFamily:'system-ui,sans-serif', whiteSpace:'nowrap', transition:'all 0.15s' }}
+                            style={{ background:'#111827', color:'white', border:'none', borderRadius:6, padding:'0.6rem 1rem', fontWeight:600, fontSize:'0.82rem', cursor:'pointer', fontFamily:'system-ui,sans-serif', whiteSpace:'nowrap' }}
                             onMouseEnter={e => { e.currentTarget.style.background='#374151'; e.currentTarget.style.transform='translateY(-1px)' }}
                             onMouseLeave={e => { e.currentTarget.style.background='#111827'; e.currentTarget.style.transform='translateY(0)' }}>
                             {c.statut === 'CONTRE_OFFRE_CLIENT' ? 'Contre-proposer' : 'Proposer'}
                           </button>
                         </div>
                         <button onClick={() => handleRefuserPrix(c.id)}
-                          style={{ background:'#FEE2E2', color:'#7F1D1D', border:'none', borderRadius:6, padding:'0.6rem 0.9rem', fontWeight:600, fontSize:'0.82rem', cursor:'pointer', fontFamily:'system-ui,sans-serif', transition:'background 0.15s' }}
+                          style={{ background:'#FEE2E2', color:'#7F1D1D', border:'none', borderRadius:6, padding:'0.6rem 0.9rem', fontWeight:600, fontSize:'0.82rem', cursor:'pointer', fontFamily:'system-ui,sans-serif' }}
                           onMouseEnter={e => e.currentTarget.style.background='#FCA5A5'}
                           onMouseLeave={e => e.currentTarget.style.background='#FEE2E2'}>
                           Refuser
@@ -973,24 +1150,8 @@ export default function ConducteurDashboard() {
                         {c.description} · {c.poids} kg · Prix : <strong style={{ color:'#00875A' }}>{c.prix} MAD</strong>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                      {c.statut !== 'LIVRE' && (
-                        <button
-                          onClick={() => setChatOuvert({
-                            type: 'COLIS',
-                            refId: c.id,
-                            destinataireId: c.expediteurId,
-                            nomDestinataire: c.nomExpediteur
-                          })}
-                          style={{
-                            background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
-                            borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
-                            fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
-                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-                          }}>
-                          💬 Message
-                        </button>
-                      )}
+                    <div style={{ display:'flex', gap:'0.8rem', alignItems:'center' }}>
+                      <BtnChat onClick={() => setChatOuvert({ type:'COLIS', refId:c.id, destinataireId:c.expediteurId, nomDestinataire:c.nomExpediteur })} />
                       <button onClick={() => handleDemarrer(c.id)} style={btnStyle('#1E3A8A')}
                         onMouseEnter={e => { e.currentTarget.style.background='#1e40af'; e.currentTarget.style.transform='translateY(-1px)' }}
                         onMouseLeave={e => { e.currentTarget.style.background='#1E3A8A'; e.currentTarget.style.transform='translateY(0)' }}>
@@ -1018,34 +1179,13 @@ export default function ConducteurDashboard() {
                           {c.description} · Destinataire : {c.nomDestinataire} ({c.telephoneDestinataire})
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                        {c.statut !== 'LIVRE' && (
-                          <button
-                            onClick={() => setChatOuvert({
-                              type: 'COLIS',
-                              refId: c.id,
-                              destinataireId: c.expediteurId,
-                              nomDestinataire: c.nomExpediteur
-                            })}
-                            style={{
-                              background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
-                              borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.78rem',
-                              fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui,sans-serif',
-                              display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-                            }}>
-                            💬 Message
-                          </button>
-                        )}
+                      <div style={{ display:'flex', gap:'0.8rem', alignItems:'center' }}>
+                        <BtnChat onClick={() => setChatOuvert({ type:'COLIS', refId:c.id, destinataireId:c.expediteurId, nomDestinataire:c.nomExpediteur })} />
                         <Badge statut={c.statut} />
                       </div>
                     </div>
                     <div style={{ marginBottom:'1rem' }}>
-                      <MapSuivi
-                        colisId={c.id}
-                        mode="conducteur"
-                        nomDestinataire={c.nomDestinataire}
-                        getToken={() => localStorage.getItem('token')}
-                      />
+                      <MapSuivi colisId={c.id} mode="conducteur" nomDestinataire={c.nomDestinataire} getToken={() => localStorage.getItem('token')} />
                     </div>
                     <div style={{ background:'#F9FAFB', borderRadius:8, padding:'0.9rem', border:'1px solid #E5E7EB' }}>
                       <div style={{ fontSize:'0.75rem', color:'#374151', fontWeight:600, marginBottom:'0.6rem', fontFamily:'system-ui,sans-serif' }}>
@@ -1082,6 +1222,64 @@ export default function ConducteurDashboard() {
             </div>
           )}
 
+          {/* MESSAGES */}
+          {tab === 'Messages' && (
+            <div style={{ maxWidth:680 }}>
+              <div style={{ fontWeight:600, fontSize:'0.95rem', color:'#111827', marginBottom:'1.2rem', fontFamily:'system-ui,sans-serif', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span>Messages {totalNonLus > 0 && <span style={{ background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.65rem', fontWeight:700, padding:'0.1rem 0.45rem', marginLeft:'0.4rem' }}>{totalNonLus}</span>}</span>
+                <button onClick={chargerConversations}
+                  style={{ background:'none', border:'1px solid #E5E7EB', color:'#374151', cursor:'pointer', fontSize:'0.82rem', fontFamily:'system-ui,sans-serif', fontWeight:500, borderRadius:8, padding:'0.4rem 0.9rem', display:'inline-flex', alignItems:'center', gap:'0.3rem' }}>
+                  ↻ Actualiser
+                </button>
+              </div>
+              {convLoading ? <Loading /> :
+                conversations.length === 0 ? (
+                  <Card style={{ padding:'3rem', textAlign:'center' }}>
+                    <div style={{ fontSize:'3rem', marginBottom:'0.8rem' }}>💬</div>
+                    <div style={{ fontWeight:600, color:'#374151', fontFamily:'system-ui,sans-serif', marginBottom:'0.4rem' }}>Aucune conversation</div>
+                    <div style={{ fontSize:'0.8rem', color:'#9CA3AF', fontFamily:'system-ui,sans-serif' }}>Les conversations apparaîtront ici quand un client vous envoie un message</div>
+                  </Card>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem' }}>
+                    {conversations.map(conv => (
+                      <div key={`${conv.typeConversation}-${conv.referenceId}`}
+                        onClick={() => setChatOuvert({ type:conv.typeConversation, refId:conv.referenceId, destinataireId:conv.interlocuteurId, nomDestinataire:conv.nomInterlocuteur })}
+                        style={{ background: conv.nonLus > 0 ? '#F0F7FF' : 'white', borderRadius:12, border: conv.nonLus > 0 ? '1.5px solid #BFDBFE' : '1px solid #E5E7EB', padding:'1rem 1.2rem', display:'flex', alignItems:'center', gap:'1rem', cursor:'pointer', transition:'all 0.15s', boxShadow: conv.nonLus > 0 ? '0 2px 8px rgba(59,130,246,0.12)' : '0 1px 3px rgba(0,0,0,0.04)' }}
+                        onMouseEnter={e => { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)' }}
+                        onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow = conv.nonLus > 0 ? '0 2px 8px rgba(59,130,246,0.12)' : '0 1px 3px rgba(0,0,0,0.04)' }}>
+                        <div style={{ position:'relative', flexShrink:0 }}>
+                          <div style={{ width:50, height:50, borderRadius:'50%', background: conv.nonLus > 0 ? '#1D4ED8' : '#E8F5F0', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:'1rem', color: conv.nonLus > 0 ? 'white' : '#00875A', fontFamily:'system-ui,sans-serif' }}>
+                            {conv.nomInterlocuteur?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || '??'}
+                          </div>
+                          {conv.nonLus > 0 && (
+                            <div style={{ position:'absolute', top:-2, right:-2, background:'#EF4444', color:'white', borderRadius:50, fontSize:'0.6rem', fontWeight:700, padding:'0.1rem 0.35rem', minWidth:16, textAlign:'center', border:'2px solid white', lineHeight:1.4, animation:'pulse-badge 1.5s infinite' }}>
+                              {conv.nonLus}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.25rem' }}>
+                            <div style={{ fontWeight: conv.nonLus > 0 ? 700 : 600, fontSize:'0.92rem', color:'#111827', fontFamily:'system-ui,sans-serif' }}>{conv.nomInterlocuteur}</div>
+                            <div style={{ fontSize:'0.7rem', color: conv.nonLus > 0 ? '#3B82F6' : '#9CA3AF', fontFamily:'system-ui,sans-serif', flexShrink:0, fontWeight: conv.nonLus > 0 ? 600 : 400 }}>{formatDate(conv.dateDernierMessage)}</div>
+                          </div>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem' }}>
+                            <div style={{ fontSize:'0.8rem', color: conv.nonLus > 0 ? '#1D4ED8' : '#6B7280', fontFamily:'system-ui,sans-serif', fontWeight: conv.nonLus > 0 ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                              {conv.dernierMessage?.length > 55 ? conv.dernierMessage.slice(0, 55) + '...' : conv.dernierMessage || '—'}
+                            </div>
+                            <div style={{ fontSize:'0.65rem', fontFamily:'system-ui,sans-serif', background: conv.typeConversation === 'COLIS' ? '#FEF0EC' : '#E8F5F0', color: conv.typeConversation === 'COLIS' ? '#C2410C' : '#00875A', padding:'0.15rem 0.5rem', borderRadius:20, flexShrink:0, fontWeight:600 }}>
+                              {conv.typeConversation === 'COLIS' ? '📦 Colis' : '🚗 Trajet'}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ color:'#D1D5DB', fontSize:'1.2rem', flexShrink:0 }}>›</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+            </div>
+          )}
+
           {/* MON PROFIL */}
           {tab === 'Mon profil' && (
             <div style={{ maxWidth:600 }}>
@@ -1104,10 +1302,7 @@ export default function ConducteurDashboard() {
                     {conducteurInfo?.marqueVoiture && (
                       <div style={{ fontSize:'0.78rem', color:'#374151', marginTop:2, fontFamily:'system-ui,sans-serif' }}>🚗 {conducteurInfo.marqueVoiture}</div>
                     )}
-                    <div style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem',
-                      background: estVerifie ? '#E8F5F0' : '#FEF9C3',
-                      color: estVerifie ? '#00875A' : '#713F12',
-                      padding:'0.2rem 0.7rem', borderRadius:50, fontSize:'0.72rem', fontWeight:600, marginTop:6, fontFamily:'system-ui,sans-serif' }}>
+                    <div style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', background: estVerifie ? '#E8F5F0' : '#FEF9C3', color: estVerifie ? '#00875A' : '#713F12', padding:'0.2rem 0.7rem', borderRadius:50, fontSize:'0.72rem', fontWeight:600, marginTop:6, fontFamily:'system-ui,sans-serif' }}>
                       <span style={{ width:5, height:5, background: estVerifie ? '#00875A' : '#F59E0B', borderRadius:'50%' }} />
                       {estVerifie ? 'Conducteur vérifié' : (conducteurInfo?.statutVerification || 'En attente de validation')}
                     </div>
@@ -1125,17 +1320,22 @@ export default function ConducteurDashboard() {
                 </div>
               </Card>
 
+              {/* COORDONNÉES BANCAIRES */}
+              <Card style={{ padding:'1.5rem', marginBottom:'1rem' }}>
+                <div style={{ fontWeight:600, fontSize:'0.9rem', color:'#111827', marginBottom:'0.4rem', fontFamily:'system-ui,sans-serif', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                   Mes coordonnées bancaires
+                </div>
+                <div style={{ fontSize:'0.75rem', color:'#6B7280', fontFamily:'system-ui,sans-serif', marginBottom:'1.2rem' }}>
+                  Ces informations permettent aux clients de vous payer par virement. Vérifiez-les soigneusement.
+                </div>
+                <InfosBancairesForm conducteurId={user?.id} authHeader={authHeader} />
+              </Card>
+
               <Card style={{ padding:'1.5rem' }}>
                 <div style={{ fontWeight:600, fontSize:'0.9rem', color:'#111827', marginBottom:'1.2rem', fontFamily:'system-ui,sans-serif', display:'flex', alignItems:'center', gap:'0.5rem' }}>
                   Documents soumis
                   {conducteurInfo?.statutVerification && (
-                    <span style={{
-                      background: conducteurInfo.statutVerification === 'VALIDE' ? '#E8F5F0' :
-                                  conducteurInfo.statutVerification === 'REJETE' ? '#FEE2E2' : '#FEF9C3',
-                      color: conducteurInfo.statutVerification === 'VALIDE' ? '#00875A' :
-                             conducteurInfo.statutVerification === 'REJETE' ? '#7F1D1D' : '#713F12',
-                      padding:'0.15rem 0.6rem', borderRadius:20, fontSize:'0.7rem', fontWeight:600, fontFamily:'system-ui,sans-serif'
-                    }}>
+                    <span style={{ background: conducteurInfo.statutVerification === 'VALIDE' ? '#E8F5F0' : conducteurInfo.statutVerification === 'REJETE' ? '#FEE2E2' : '#FEF9C3', color: conducteurInfo.statutVerification === 'VALIDE' ? '#00875A' : conducteurInfo.statutVerification === 'REJETE' ? '#7F1D1D' : '#713F12', padding:'0.15rem 0.6rem', borderRadius:20, fontSize:'0.7rem', fontWeight:600, fontFamily:'system-ui,sans-serif' }}>
                       {conducteurInfo.statutVerification}
                     </span>
                   )}
@@ -1145,27 +1345,19 @@ export default function ConducteurDashboard() {
                     <div style={{ fontSize:'2rem', marginBottom:'0.5rem' }}>📄</div>
                     Aucun document soumis.
                     <br />
-                    <button onClick={() => setTab('Documents')}
-                      style={{ color:'#00875A', fontWeight:600, background:'none', border:'none', cursor:'pointer', marginTop:6, fontFamily:'system-ui,sans-serif', fontSize:'0.85rem' }}>
+                    <button onClick={() => setTab('Documents')} style={{ color:'#00875A', fontWeight:600, background:'none', border:'none', cursor:'pointer', marginTop:6, fontFamily:'system-ui,sans-serif', fontSize:'0.85rem' }}>
                       Soumettre mes documents →
                     </button>
                   </div>
                 ) : (
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:'0.9rem' }}>
-                    {[
-                      [conducteurInfo?.photoProfile, 'Photo de profil'],
-                      [conducteurInfo?.permisConduire, 'Permis de conduire'],
-                      [conducteurInfo?.pieceIdentite, 'CIN'],
-                      [conducteurInfo?.photoVoiture, 'Photo véhicule'],
-                    ].map(([fichier, label]) => fichier ? (
+                    {[[conducteurInfo?.photoProfile,'Photo de profil'],[conducteurInfo?.permisConduire,'Permis de conduire'],[conducteurInfo?.pieceIdentite,'CIN'],[conducteurInfo?.photoVoiture,'Photo véhicule']].map(([fichier, label]) => fichier ? (
                       <div key={label} style={{ borderRadius:10, overflow:'hidden', border:'1px solid #E5E7EB' }}>
                         <div style={{ background:'#F9FAFB', padding:'0.35rem 0.7rem', borderBottom:'1px solid #E5E7EB' }}>
                           <span style={{ fontSize:'0.7rem', fontWeight:600, color:'#374151', textTransform:'uppercase', fontFamily:'system-ui,sans-serif' }}>{label}</span>
                         </div>
                         <a href={`http://localhost:8080/api/documents/fichier/${fichier}`} target="_blank" rel="noreferrer">
-                          <img src={`http://localhost:8080/api/documents/fichier/${fichier}`}
-                            alt={label} style={{ width:'100%', height:110, objectFit:'cover', display:'block' }}
-                            onError={e => e.target.style.display='none'} />
+                          <img src={`http://localhost:8080/api/documents/fichier/${fichier}`} alt={label} style={{ width:'100%', height:110, objectFit:'cover', display:'block' }} onError={e => e.target.style.display='none'} />
                         </a>
                       </div>
                     ) : null)}
@@ -1202,15 +1394,11 @@ export default function ConducteurDashboard() {
 
         </div>
       </div>
+
       {chatOuvert && (
-        <Chat
-          type={chatOuvert.type}
-          refId={chatOuvert.refId}
-          destinataireId={chatOuvert.destinataireId}
-          nomDestinataire={chatOuvert.nomDestinataire}
-          onClose={() => setChatOuvert(null)}
-        />
+        <Chat type={chatOuvert.type} refId={chatOuvert.refId} destinataireId={chatOuvert.destinataireId} nomDestinataire={chatOuvert.nomDestinataire} onClose={fermerChat} />
       )}
+
       <Footer />
     </>
   )
