@@ -42,10 +42,10 @@ export default function Footer() {
 
         {/* Brand */}
         <div>
-          <div style={{ fontFamily:'Bricolage Grotesque, sans-serif', fontWeight:800, fontSize:'1.4rem', color:'white', marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
-            <div style={{ width:30, height:30, background:'var(--primary)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800 }}>C</div>
-            Covoit<em style={{ color:'var(--accent)', fontStyle:'normal' }}>Go</em>
-          </div>
+    <div style={{ fontFamily:'Bricolage Grotesque, sans-serif', fontWeight:800, fontSize:'1.4rem', color:'white', marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+  <div style={{ width:30, height:30, background:'var(--primary)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800 }}>C</div>
+  <span>Covo<em style={{ color:'var(--accent)', fontStyle:'normal' }}>Liv</em></span>
+</div>
           <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.88rem', lineHeight:1.7, marginBottom:'1.5rem', maxWidth:280, fontFamily:'system-ui,sans-serif' }}>
             La première plateforme marocaine de covoiturage et livraison de colis. Simple, sécurisée et collaborative.
           </p>
@@ -94,7 +94,7 @@ export default function Footer() {
       {/* Bas du footer */}
       <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1.5rem 0', flexWrap:'wrap', gap:'1rem' }}>
         <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.82rem', fontFamily:'system-ui,sans-serif', margin:0 }}>
-          © 2026 CovoitGo — Université Sultan Moulay Slimane de Béni Mellal
+          © 2026 CovoLiv — Université Sultan Moulay Slimane de Béni Mellal
         </p>
         {/*  Pages légales */}
         <div style={{ display:'flex', gap:'1.5rem', flexWrap:'wrap' }}>

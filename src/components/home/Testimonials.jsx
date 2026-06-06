@@ -1,6 +1,6 @@
 const reviews = [
   { text:"J'envoie des colis chaque semaine de Béni Mellal à Casa. Le code OTP me rassure totalement. Rapide, pas cher, et les conducteurs sont vraiment sérieux.", name:'Hamid M.', role:'Commerçant, Béni Mellal', initials:'HM' },
-  { text:"Je propose des trajets régulièrement sur CovoitGo. La négociation de prix est parfaite et je gagne facilement sur mes trajets quotidiens. Meilleure appli du genre.", name:'Amine K.', role:'Conducteur vérifié, Marrakech', initials:'AK' },
+  { text:"Je propose des trajets régulièrement sur CovoLiv. La négociation de prix est parfaite et je gagne facilement sur mes trajets quotidiens. Meilleure appli du genre.", name:'Amine K.', role:'Conducteur vérifié, Marrakech', initials:'AK' },
   { text:"Interface très simple. J'ai trouvé un trajet Marrakech-Rabat en moins de 3 minutes, négocié le prix et c'était réglé. Je recommande vivement à tout le monde.", name:'Nadia B.', role:'Étudiante, Marrakech', initials:'NB' },
 ]
 

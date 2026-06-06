@@ -31,6 +31,7 @@ export const logout = () => {
   localStorage.removeItem('user')
 }
 
+
 // ── HEADERS ──
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -147,7 +148,7 @@ export const refuserPrixColis = async (id) => {
   return res.json()
 }
 
-// FIX 5 — Contre-proposer un prix (client → conducteur)
+//  — Contre-proposer un prix (client → conducteur)
 export const contreProposerPrixColis = async (id, prix) => {
   const res = await fetch(`${API_URL}/colis/${id}/contre-proposer`, {
     method: 'PATCH',
@@ -161,7 +162,7 @@ export const contreProposerPrixColis = async (id, prix) => {
   return res.json()
 }
 
-// FIX 5 — Accepter la contre-offre (conducteur accepte le prix du client)
+//  — Accepter la contre-offre (conducteur accepte le prix du client)
 export const accepterContreOffreColis = async (id) => {
   const res = await fetch(`${API_URL}/colis/${id}/accepter-contre-offre`, {
     method: 'PATCH',
@@ -181,7 +182,7 @@ export const getColisEnAttente = async () => {
   return res.json()
 }
 
-//  FIX 4+5 — Toutes les demandes liées au conducteur
+//  — Toutes les demandes liées au conducteur
 export const getMesDemandes = async () => {
   const res = await fetch(`${API_URL}/colis/mes-demandes`, {
     headers: authOnlyHeaders()
@@ -255,7 +256,7 @@ export const getMesOffresLivraison = async () => {
   return res.json()
 }
 
-// FIX 4 — Désactiver une offre livraison
+// — Désactiver une offre livraison
 export const desactiverOffreLivraison = async (id) => {
   const res = await fetch(`${API_URL}/offres-livraison/${id}/desactiver`, {
     method: 'PATCH',
@@ -365,7 +366,7 @@ export const uploadDocuments = async (formData) => {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${getToken()}`
-      // Ne pas mettre Content-Type ici — le browser le fait automatiquement pour FormData
+      
     },
     body: formData
   })

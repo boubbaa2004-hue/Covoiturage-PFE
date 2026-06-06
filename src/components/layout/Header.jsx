@@ -27,7 +27,7 @@ export default function Header() {
         <Link to="/" style={{ display:'flex', alignItems:'center', gap:'0.6rem', textDecoration:'none' }}>
           <div style={{ width:36, height:36, background:'var(--primary)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:800, fontSize:'1.1rem', fontFamily:'Bricolage Grotesque,sans-serif' }}>C</div>
           <span style={{ fontFamily:'Bricolage Grotesque,sans-serif', fontWeight:800, fontSize:'1.5rem', color:'var(--primary-dark)' }}>
-            Covoit<span style={{ color:'var(--accent)' }}>Go</span>
+            Covo<span style={{ color:'var(--accent)' }}>Liv</span>
           </span>
         </Link>
 
@@ -46,7 +46,7 @@ export default function Header() {
             Accueil
           </Link>
 
-          {/* ✅ Covoiturage — accessible à tous */}
+          {/*  Covoiturage — accessible à tous */}
           <Link to="/trajets"
             style={{
               padding:'0.5rem 1rem', borderRadius:8,
