@@ -8,6 +8,11 @@ import LivraisonPage from './pages/livraison/LivraisonPage'
 import ClientDashboard from './pages/dashboard/client/ClientDashboard'
 import ConducteurDashboard from './pages/dashboard/conducteur/ConducteurDashboard'
 import AdminDashboard from './pages/dashboard/admin/AdminDashboard'
+import AboutPage from './pages/info/AboutPage'
+import TeamPage from './pages/info/TeamPage'
+import ContactPage from './pages/info/ContactPage'
+import SignalerPage from './pages/info/SignalerPage'
+import FaqPage from './pages/info/FaqPage'
 
 export default function App() {
   return (
@@ -21,6 +26,11 @@ export default function App() {
       <Route path="/dashboard/client" element={<ClientDashboard />} />
       <Route path="/dashboard/conducteur" element={<ConducteurDashboard />} />
       <Route path="/dashboard/admin" element={<AdminDashboard />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/team" element={<TeamPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/signaler" element={<SignalerPage />} />
+      <Route path="/faq" element={<FaqPage />} />
     </Routes>
   )
 }

@@ -2,33 +2,32 @@ import { Link } from 'react-router-dom'
 
 export default function Footer() {
   const cols = [
-    {
-      title:'Services',
-      links:[
-        { label:'Covoiturage', to:'/trajets' },
-        { label:'Livraison colis', to:'/livraison' },
-        { label:'Suivre un colis', to:'/livraison' },
-        { label:'Devenir conducteur', to:'/auth/register' },
-      ]
-    },
-    {
-      title:'Entreprise',
-      links:[
-        { label:'À propos', to:'/' },
-        { label:'Notre équipe', to:'/' },
-        { label:'Université USMS', href:'https://www.usms.ac.ma', externe:true },
-      ]
-    },
-    {
-      title:'Support',
-      links:[
-        { label:'Contact', to:'/' },
-        { label:'Signaler un problème', to:'/' },
-        { label:'FAQ', to:'/' },
-      ]
-    },
-  ]
-
+  {
+    title:'Services',
+    links:[
+      { label:'Covoiturage', to:'/trajets' },
+      { label:'Livraison colis', to:'/livraison' },
+      { label:'Suivre un colis', to:'/livraison' },
+      { label:'Devenir conducteur', to:'/auth/register' },
+    ]
+  },
+  {
+    title:'Entreprise',
+    links:[
+      { label:'À propos', to:'/about' },
+      { label:'Notre équipe', to:'/team' },
+      { label:'Université USMS', href:'https://www.usms.ac.ma', externe:true },
+    ]
+  },
+  {
+    title:'Support',
+    links:[
+      { label:'Contact', to:'/contact' },
+      { label:'Signaler un problème', to:'/signaler' },
+      { label:'FAQ', to:'/faq' },
+    ]
+  },
+]
   const socials = [
     { label:'f', href:'https://facebook.com', title:'Facebook' },
     { label:'in', href:'https://linkedin.com', title:'LinkedIn' },
